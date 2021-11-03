@@ -1,6 +1,7 @@
 name: trigger
 description: My personal Flutter state management project.
-
+homepage: https://github.com/BLeAm/trigger
+repository: https://github.com/BLeAm/trigger.git
 # publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
