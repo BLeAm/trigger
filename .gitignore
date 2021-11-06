@@ -51,3 +51,4 @@ app.*.map.json
 /web/
 
 /.pytest_cache/
+pubspec.lock
