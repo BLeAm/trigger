@@ -1,5 +1,9 @@
 # Changelog
 
+0.0.1+3
+
+- changed SelfTriggerWidget builder's signature.
+
 0.0.1+2
 
 - SelfTriggerWidget added.
