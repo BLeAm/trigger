@@ -1,5 +1,5 @@
 name: trigger
-description: My personal Flutter state management project.
+description: A Flutter state management project, which intended to be easy to use with lowest ceremony.
 homepage: https://github.com/BLeAm/trigger
 repository: https://github.com/BLeAm/trigger.git
 # publish_to: 'none' # Remove this line if you wish to publish to pub.dev

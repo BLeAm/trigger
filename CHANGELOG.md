@@ -4,6 +4,7 @@
 
 - changed SelfTriggerWidget builder's signature.
 - Operation class added.
+- added TriggerState and changed _TriggerState mechanism.
 
 0.0.1+2
 

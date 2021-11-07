@@ -30,19 +30,22 @@ class TriggerWidget<T extends Trigger> extends StatefulWidget {
         _didChangeDependencies = didChangeDependencies,
         super(key: key);
 
-  UnmodifiableListView<String> get listenTo =>
-      UnmodifiableListView<String>(_listenTo);
+  UnmodifiableListView<String> get listenTo => UnmodifiableListView<String>(_listenTo);
 
   @override
   State<TriggerWidget<T>> createState() => _TriggerState<T>();
 }
 
-class _TriggerState<U extends Trigger> extends State<TriggerWidget<U>> {
-  late final U _trigger;
+class _TriggerState<T extends Trigger> extends TriggerState<T, TriggerWidget<T>> {
+  T? _trigger;
+
+  @override
+  List<String> get listenTo => widget._listenTo;
+  @override
+  T get trigger => _trigger ??= widget._trigger ?? Trigger.of<T>();
+
   @override
   void initState() {
-    _trigger = widget._trigger ?? Trigger.of<U>();
-    _trigger._register(widget.listenTo, this);
     var func = widget._initState;
     if (func != null) {
       func();
@@ -79,7 +82,7 @@ class _TriggerState<U extends Trigger> extends State<TriggerWidget<U>> {
 
   @override
   void dispose() {
-    _trigger._unRegister(this);
+    trigger._unRegister(this);
     var func = widget._dispose;
     if (func != null) {
       func();
@@ -88,7 +91,10 @@ class _TriggerState<U extends Trigger> extends State<TriggerWidget<U>> {
   }
 
   @override
-  Widget build(BuildContext context) => widget._build(_trigger, context);
+  Widget build(BuildContext context) => widget._build(trigger, context);
 
-  void _update() => setState(() {});
+  @override
+  void update() {
+    setState(() {});
+  }
 }
