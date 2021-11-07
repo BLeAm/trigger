@@ -3,6 +3,7 @@
 0.0.1+3
 
 - changed SelfTriggerWidget builder's signature.
+- Operation class added.
 
 0.0.1+2
 

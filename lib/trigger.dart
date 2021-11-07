@@ -1,9 +1,11 @@
 import 'dart:collection';
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 part 'src/trigger_field.dart';
 part 'src/trigger_widgets.dart';
 part 'src/selftrigger_widget.dart';
+part 'src/operation.dart';
 
 abstract class Trigger {
   static final List<Trigger> _triggers = [];
@@ -13,8 +15,7 @@ abstract class Trigger {
     try {
       res = _triggers.firstWhere((element) => element is T) as T;
     } on StateError {
-      throw TriggerError(
-          'Trigger<$T>.of error: No Initialized $T can be found or provided!');
+      throw TriggerError('Trigger<$T>.of error: No Initialized $T can be found or provided!');
     } catch (e) {
       rethrow;
     }
