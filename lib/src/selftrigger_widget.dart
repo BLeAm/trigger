@@ -1,6 +1,7 @@
 part of '../trigger.dart';
 
-typedef _BuilderFunc<T> = Widget Function(_SelfTrigger self, BuildContext context);
+typedef _BuilderFunc<T> = Widget Function(
+    _SelfTrigger<T> self, BuildContext context);
 
 class _SelfTrigger<T> {
   late final _SelfTriggerWidgetState<T> _state;
@@ -16,9 +17,14 @@ class SelfTriggerWidget<T> extends StatefulWidget {
   final _BuilderFunc<T> _builder;
   final _SelfTrigger<T> _selfTrigger;
 
-  factory SelfTriggerWidget({Key? key, required T initData, required _BuilderFunc<T> builder}) {
+  factory SelfTriggerWidget(
+      {Key? key, required T initData, required _BuilderFunc<T> builder}) {
     return SelfTriggerWidget._create(
-        initData: initData, selfTrigger: _SelfTrigger<T>(), builder: builder);
+      key: key ?? UniqueKey(),
+      initData: initData,
+      selfTrigger: _SelfTrigger<T>(),
+      builder: builder,
+    );
   }
 
   const SelfTriggerWidget._create(
@@ -55,5 +61,6 @@ class _SelfTriggerWidgetState<T> extends State<SelfTriggerWidget<T>> {
   }
 
   @override
-  Widget build(BuildContext context) => widget._builder(widget._selfTrigger, context);
+  Widget build(BuildContext context) =>
+      widget._builder(widget._selfTrigger, context);
 }

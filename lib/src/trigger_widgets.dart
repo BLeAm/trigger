@@ -30,13 +30,15 @@ class TriggerWidget<T extends Trigger> extends StatefulWidget {
         _didChangeDependencies = didChangeDependencies,
         super(key: key);
 
-  UnmodifiableListView<String> get listenTo => UnmodifiableListView<String>(_listenTo);
+  UnmodifiableListView<String> get listenTo =>
+      UnmodifiableListView<String>(_listenTo);
 
   @override
   State<TriggerWidget<T>> createState() => _TriggerState<T>();
 }
 
-class _TriggerState<T extends Trigger> extends TriggerState<T, TriggerWidget<T>> {
+class _TriggerState<T extends Trigger>
+    extends TriggerState<T, TriggerWidget<T>> {
   T? _trigger;
 
   @override

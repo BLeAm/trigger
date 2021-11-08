@@ -15,7 +15,8 @@ abstract class Trigger {
     try {
       res = _triggers.firstWhere((element) => element is T) as T;
     } on StateError {
-      throw TriggerError('Trigger<$T>.of error: No Initialized $T can be found or provided!');
+      throw TriggerError(
+          'Trigger<$T>.of error: No Initialized $T can be found or provided!');
     } catch (e) {
       rethrow;
     }
@@ -87,7 +88,8 @@ class TriggerError implements Exception {
   String toString() => cause ?? '';
 }
 
-abstract class TriggerState<T extends Trigger, STF extends StatefulWidget> extends State<STF> {
+abstract class TriggerState<T extends Trigger, STF extends StatefulWidget>
+    extends State<STF> {
   List<String> get listenTo;
   T get trigger => Trigger.of<T>();
   void update() {

@@ -2,6 +2,7 @@ part of '../trigger.dart';
 
 typedef AsyncFunc<T> = Future<T> Function();
 
+///Operation is a task helper which makes sure any task/operation would have only one action/effector to be excuted.
 class Operation<T> {
   static final _checkPoint = <String, int>{};
 
