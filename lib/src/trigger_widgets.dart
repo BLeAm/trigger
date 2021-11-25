@@ -3,7 +3,7 @@ part of '../trigger.dart';
 class TriggerWidget<T extends Trigger> extends StatefulWidget {
   final T? _trigger;
   final Widget Function(T trigger, BuildContext context) _build;
-  final List<String> _listenTo;
+  final Iterable<String> _listenTo;
   final void Function()? _initState;
   final void Function()? _dispose;
   final void Function()? _activate;
@@ -13,7 +13,7 @@ class TriggerWidget<T extends Trigger> extends StatefulWidget {
   const TriggerWidget({
     Key? key,
     T? trigger,
-    required List<String> listenTo,
+    required Iterable<String> listenTo,
     void Function()? initState,
     void Function()? dispose,
     void Function()? activate,
@@ -30,19 +30,17 @@ class TriggerWidget<T extends Trigger> extends StatefulWidget {
         _didChangeDependencies = didChangeDependencies,
         super(key: key);
 
-  UnmodifiableListView<String> get listenTo =>
-      UnmodifiableListView<String>(_listenTo);
+  UnmodifiableListView<String> get listenTo => UnmodifiableListView<String>(_listenTo);
 
   @override
   State<TriggerWidget<T>> createState() => _TriggerState<T>();
 }
 
-class _TriggerState<T extends Trigger>
-    extends TriggerState<T, TriggerWidget<T>> {
+class _TriggerState<T extends Trigger> extends TriggerState<T, TriggerWidget<T>> {
   T? _trigger;
 
   @override
-  List<String> get listenTo => widget._listenTo;
+  Iterable<String> get listenTo => widget._listenTo;
   @override
   T get trigger => _trigger ??= widget._trigger ?? Trigger.of<T>();
 

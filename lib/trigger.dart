@@ -15,8 +15,7 @@ abstract class Trigger {
     try {
       res = _triggers.firstWhere((element) => element is T) as T;
     } on StateError {
-      throw TriggerError(
-          'Trigger<$T>.of error: No Initialized $T can be found or provided!');
+      throw TriggerError('Trigger<$T>.of error: No Initialized $T can be found or provided!');
     } catch (e) {
       rethrow;
     }
@@ -30,7 +29,7 @@ abstract class Trigger {
   final _valueTable = <String, Object>{};
   final _stateTable = <String, Set<TriggerState>>{};
 
-  void _register(List<String> keys, TriggerState state) {
+  void _register(Iterable<String> keys, TriggerState state) {
     for (var key in keys) {
       if (!_stateTable.containsKey(key)) {
         _stateTable[key] = <TriggerState>{};
@@ -88,9 +87,8 @@ class TriggerError implements Exception {
   String toString() => cause ?? '';
 }
 
-abstract class TriggerState<T extends Trigger, STF extends StatefulWidget>
-    extends State<STF> {
-  List<String> get listenTo;
+abstract class TriggerState<T extends Trigger, STF extends StatefulWidget> extends State<STF> {
+  Iterable<String> get listenTo;
   T get trigger => Trigger.of<T>();
   void update() {
     setState(() {});

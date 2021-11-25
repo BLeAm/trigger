@@ -1,13 +1,13 @@
 part of '../trigger.dart';
 
-abstract class TriggerField with ListMixin<String> {
+abstract class TriggerField with IterableMixin<String> {
   final List<String> _list = [];
   bool _endFlag = false;
 
   @override
   int get length => _list.length;
   @override
-  set length(int val) => _list.length = val;
+  Iterator<String> get iterator => _list.iterator;
 
   void addField(String str) {
     if (_endFlag) {
@@ -16,16 +16,4 @@ abstract class TriggerField with ListMixin<String> {
     }
     _list.add(str);
   }
-
-  @override
-  String operator [](int index) {
-    var val = _list[index];
-    if (index == length - 1) {
-      _endFlag = true;
-    }
-    return val;
-  }
-
-  @override
-  void operator []=(int index, String value) {}
 }

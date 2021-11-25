@@ -20,6 +20,20 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class Cube extends StatelessWidget {
+  final double size;
+  const Cube({Key? key, required this.size}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      color: Colors.blue,
+    );
+  }
+}
+
 class MyHomePage extends StatelessWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
 
@@ -39,7 +53,8 @@ class MyHomePage extends StatelessWidget {
             const Text(
               'You have pushed the button this many times:',
             ),
-            stw
+            stw,
+            const Cube(size: 30),
           ],
         ),
       ),
