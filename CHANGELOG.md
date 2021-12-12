@@ -1,5 +1,9 @@
 # Changelog
 
+0.0.1+5
+
+- Added static function, find, and changed the implementation of SelfTriggerWidget.
+
 0.0.1+4
 
 - Bugfixes.

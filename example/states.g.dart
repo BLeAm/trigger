@@ -12,6 +12,12 @@ class MyTrigger extends Trigger {
   }
   int get counter => getValue('counter')!;
   set counter(int val) => setValue('counter', val);
+
+  void multiSet(void Function(_MyTriggerMultiSetter setter) func) {
+    final setter = _MyTriggerMultiSetter();
+    func(setter);
+    setMultiValue(setter._map);
+  }
 }
 
 class MyTriggerField extends TriggerField {
@@ -19,4 +25,9 @@ class MyTriggerField extends TriggerField {
     addField('counter');
     return this;
   }
+}
+
+class _MyTriggerMultiSetter {
+  final _map = <String, dynamic>{};
+  set counter(int val) => _map["counter"] = val;
 }

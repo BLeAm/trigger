@@ -20,20 +20,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Cube extends StatelessWidget {
-  final double size;
-  const Cube({Key? key, required this.size}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      color: Colors.blue,
-    );
-  }
-}
-
 class MyHomePage extends StatelessWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
 
@@ -41,7 +27,6 @@ class MyHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var stw = SelfTriggerWidget<int>(initData: 0, builder: (self, context) => Text('${self.data}'));
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -53,13 +38,19 @@ class MyHomePage extends StatelessWidget {
             const Text(
               'You have pushed the button this many times:',
             ),
-            stw,
-            const Cube(size: 30),
+            SelfTriggerWidget<int>(
+              name: 'counter',
+              initData: 0,
+              builder: (data, context) => Text('$data'),
+            ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => stw.update(stw.data + 1),
+        onPressed: () {
+          final counter = SelfTriggerWidget.find<int>('counter');
+          counter?.update(counter.data + 1);
+        },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ),

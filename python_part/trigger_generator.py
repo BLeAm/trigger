@@ -14,11 +14,16 @@ class TriggerCls:
         type_name = 'String'
       elif cls.__annotations__[attr] == int:
         type_name = 'int'
+      elif cls.__annotations__[attr] == bool:
+        type_name = 'bool'
+      elif cls.__annotations__[attr] == float:
+        type_name = 'double'
       else:
         type_name = str(cls.__annotations__[attr])
       item:dict[str, Any] = {'type': type_name}
       if attr in cls.__dict__:
         item['value'] = str(cls.__dict__[attr])
+        if item['value'] in ['True', 'False']: item['value'] = item['value'].lower()
       else:
         item['value'] = None
       self.attrs[attr] = item
@@ -28,8 +33,10 @@ class TriggerCls:
     res = ''
     init_val = ''
     f_body = ''
+    st_body = ''
     for attr in self.attrs:
       res += f'\t{self.attrs[attr]["type"]} get {attr} => getValue(\'{attr}\')'
+      st_body += f'\tset {attr}({self.attrs[attr]["type"]} val) => _map["{attr}"] = val;\n'
       if self.attrs[attr]['type'][-1] != '?':
         res += '!'
       res += ';\n'
@@ -62,12 +69,23 @@ class TriggerCls:
         return _instance ??= {self.name}._create();
       }}
 {res}
+
+void multiSet(void Function(_{self.name}MultiSetter setter) func) {{
+    final setter = _{self.name}MultiSetter();
+    func(setter);
+    setMultiValue(setter._map);
+  }}
     }}\n
     '''
     res = f'''
     {res}
 class {self.name}Field extends TriggerField {{
     {f_body}
+}}
+
+class _{self.name}MultiSetter {{
+  final _map = <String, dynamic>{{}};
+  {st_body}
 }}
     '''
     return res
