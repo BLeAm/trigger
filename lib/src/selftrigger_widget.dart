@@ -68,7 +68,8 @@ class SelfTriggerWidget<T> extends StatefulWidget {
 class _SelfTriggerWidgetState<T> extends State<SelfTriggerWidget<T>> {
   @override
   void dispose() {
-    SelfTriggerWidget._widgetBank.removeWhere((key, value) => key == widget.name);
+    SelfTriggerWidget._widgetBank
+        .removeWhere((key, value) => key == widget.name);
     // print('SelfTriggerWidget <${widget.name}> is disposed.');
     super.dispose();
   }
