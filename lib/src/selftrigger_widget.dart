@@ -22,8 +22,13 @@ class SelfTriggerWidget<T> extends StatefulWidget {
   T get data => _rvStream._data;
 
   static final _widgetBank = <String, SelfTriggerWidget>{};
-  static SelfTriggerWidget<T>? find<T>(String name) =>
-      _widgetBank[name] as SelfTriggerWidget<T>;
+  static SelfTriggerWidget<T>? find<T>(String name) {
+    final widget = _widgetBank[name];
+    if ((widget != null) & (widget is SelfTriggerWidget<T>)) {
+      return widget as SelfTriggerWidget<T>;
+    }
+    return null;
+  }
 
   factory SelfTriggerWidget({
     Key? key,
@@ -63,8 +68,7 @@ class SelfTriggerWidget<T> extends StatefulWidget {
 class _SelfTriggerWidgetState<T> extends State<SelfTriggerWidget<T>> {
   @override
   void dispose() {
-    SelfTriggerWidget._widgetBank
-        .removeWhere((key, value) => key == widget.name);
+    SelfTriggerWidget._widgetBank.removeWhere((key, value) => key == widget.name);
     // print('SelfTriggerWidget <${widget.name}> is disposed.');
     super.dispose();
   }
