@@ -1,1 +1,0 @@
-../python_part/trigger_generator.py

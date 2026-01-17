@@ -1,14 +1,22 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'states.dart';
 
-class MyTrigger extends Trigger {
-  static MyTrigger? _instance;
+base class MyTrigger extends Trigger {
+  static final MyTrigger _instance = MyTrigger._internal();
+  static MyTriggerField fields() => MyTriggerField();
 
-  MyTrigger._create() {
+  MyTrigger._internal() {
     counter = 0;
   }
 
+  //this will be used to spawn a new MyTrigger instance that is not singleton.
+  factory MyTrigger.spawn() {
+    return MyTrigger._internal();
+  }
+
   factory MyTrigger() {
-    return _instance ??= MyTrigger._create();
+    return MyTrigger._instance;
   }
   int get counter => getValue('counter')!;
   set counter(int val) => setValue('counter', val);
@@ -16,7 +24,7 @@ class MyTrigger extends Trigger {
   void multiSet(void Function(_MyTriggerMultiSetter setter) func) {
     final setter = _MyTriggerMultiSetter();
     func(setter);
-    setMultiValue(setter._map);
+    setMultiValues(setter._map);
   }
 }
 

@@ -52,3 +52,5 @@ app.*.map.json
 
 /.pytest_cache/
 pubspec.lock
+
+python_codegen/trigger_generator.egg-info/

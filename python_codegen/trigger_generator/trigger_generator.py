@@ -58,22 +58,29 @@ class TriggerCls:
       }}
       """
       
-    res = f'''class {self.name} extends Trigger {{
-      static {self.name}? _instance;
+    res = f'''base class {self.name} extends Trigger {{
+    static final {self.name} _instance = {self.name}._internal();
+    static {self.name}Field fields() => {self.name}Field();
 
-      {self.name}._create() {{
+      {self.name}._internal() {{
 {init_val}
       }}
 
+      
+      //this will be used to spawn a new {self.name} instance that is not singleton.
+      factory {self.name}.spawn() {{
+        return {self.name}._internal();
+      }}
+
       factory {self.name}() {{
-        return _instance ??= {self.name}._create();
+        return {self.name}._instance;
       }}
 {res}
 
 void multiSet(void Function(_{self.name}MultiSetter setter) func) {{
     final setter = _{self.name}MultiSetter();
     func(setter);
-    setMultiValue(setter._map);
+    setMultiValues(setter._map);
   }}
     }}\n
     '''
@@ -97,7 +104,8 @@ def trigger(cls):
 
 def build():
   filename = sys.argv[0].replace('.py','')
-  res = f"part of '{filename}.dart';\n\n"
+  res = '// GENERATED CODE - DO NOT MODIFY BY HAND\n\n'
+  res += f"part of '{filename}.dart';\n\n"
   for cls in _trigger_list:
     res += str(cls)
   

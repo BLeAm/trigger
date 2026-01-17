@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'states.dart';
 import 'package:trigger/trigger.dart';
+import 'package:trigger/trigger_widgets.dart';
 
 void main() {
   MyTrigger();
@@ -14,9 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
@@ -30,19 +29,15 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
+            const Text('You have pushed the button this many times:'),
             TriggerWidget<MyTrigger>(
-              listenTo: f.counter,
-              build: (trigger, context) => Text('${trigger.counter}'),
+              listenTo: MyTrigger.fields().counter,
+              builder: (context, trigger) => Text('${trigger.counter}'),
             ),
           ],
         ),

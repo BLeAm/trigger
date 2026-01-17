@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:trigger/trigger.dart';
+import 'package:trigger/trigger_widgets.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,9 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
@@ -28,16 +26,12 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
+            const Text('You have pushed the button this many times:'),
             SelfTriggerWidget<int>(
               name: 'counter',
               initData: 0,
@@ -48,8 +42,8 @@ class MyHomePage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          final counter = SelfTriggerWidget.find<int>('counter');
-          counter?.update(counter.data + 1);
+          final counter = SelfTriggerRegistry.find<int>('counter');
+          counter.update(counter.data + 1);
         },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
