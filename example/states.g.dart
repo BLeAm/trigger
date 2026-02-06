@@ -6,13 +6,13 @@ base class MyTrigger extends Trigger {
   static final MyTrigger _instance = MyTrigger._internal();
   static MyTriggerField fields() => MyTriggerField();
 
-  MyTrigger._internal() {
+  MyTrigger._internal([bool register = true]) : super(register) {
     counter = 0;
   }
 
   //this will be used to spawn a new MyTrigger instance that is not singleton.
   factory MyTrigger.spawn() {
-    return MyTrigger._internal();
+    return MyTrigger._internal(false);
   }
 
   factory MyTrigger() {

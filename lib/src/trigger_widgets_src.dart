@@ -31,6 +31,7 @@ mixin TriggerStateMixin<T extends StatefulWidget, U extends Trigger> on State<T>
     super.dispose();
   }
 
+  @override
   void update() {
     if (mounted) setState(() {});
   }
