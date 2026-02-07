@@ -23,8 +23,8 @@ final class SelfTriggerWidgetController<T> {
 }
 
 final class SelfTriggerRegistry {
-  static final Map<String, SelfTriggerWidgetController> _controllers = {};
-  static SelfTriggerWidgetController<T> find<T>(String key) {
+  static final Map<Object, SelfTriggerWidgetController> _controllers = {};
+  static SelfTriggerWidgetController<T> find<T>(Object key) {
     final ctrl = _controllers[key];
     if (ctrl == null) {
       throw Exception('No SelfTriggerWidgetController found for key "$key"');
@@ -35,7 +35,7 @@ final class SelfTriggerRegistry {
   static bool hasKey(String key) => _controllers.containsKey(key);
 
   static void register<T>(
-    String key,
+    Object key,
     SelfTriggerWidgetController<T> controller,
   ) {
     assert(
@@ -45,21 +45,21 @@ final class SelfTriggerRegistry {
     _controllers[key] = controller;
   }
 
-  static void unregister(String key) {
+  static void unregister(Object key) {
     _controllers.remove(key);
   }
 }
 
 class SelfTriggerWidget<T> extends StatefulWidget {
-  final String _name;
+  final Object _key;
   final T _initData;
   final Widget Function(BuildContext context, T data) _builder;
   const SelfTriggerWidget({
     super.key,
-    required String name,
+    required Object skey,
     required T initData,
     required Widget Function(BuildContext context, T data) builder,
-  }) : _name = name,
+  }) : _key = skey,
        _initData = initData,
        _builder = builder;
 
@@ -73,12 +73,12 @@ class _SelfTriggerWidgetState<T> extends State<SelfTriggerWidget<T>> {
   @override
   void initState() {
     super.initState();
-    SelfTriggerRegistry.register(widget._name, _stwCtrl);
+    SelfTriggerRegistry.register(widget._key, _stwCtrl);
   }
 
   @override
   void dispose() {
-    SelfTriggerRegistry.unregister(widget._name);
+    SelfTriggerRegistry.unregister(widget._key);
     _stwCtrl.dispose();
     super.dispose();
   }
