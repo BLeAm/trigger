@@ -33,7 +33,7 @@ class MyHomePage extends StatelessWidget {
           children: <Widget>[
             const Text('You have pushed the button this many times:'),
             SelfTriggerWidget<int>(
-              name: 'counter',
+              skey: 'counter',
               initData: 0,
               builder: (data, context) => Text('$data'),
             ),
