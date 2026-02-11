@@ -1,4 +1,4 @@
-part of 'trigger_widgets_src.dart';
+part of '../trigger.dart';
 
 abstract class TriggerFields<T extends Trigger> with IterableMixin<String> {
   final List<String> _list = [];

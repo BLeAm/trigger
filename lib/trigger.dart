@@ -1,8 +1,10 @@
-import 'package:trigger/trigger_widgets.dart';
+import 'dart:collection';
 import 'package:meta/meta.dart';
+
 export 'src/annotations.dart';
 
 part 'src/trigger_effect_src.dart';
+part 'src/trigger_fields_src.dart';
 
 abstract interface class Updateable {
   void update();
@@ -11,6 +13,11 @@ abstract interface class Updateable {
 abstract base class Trigger {
   static final Set<Trigger> _instances = {};
   static final Set<Type> _registeredTypes = {};
+
+  static void remove(Type T) {
+    _instances.removeWhere((e) => e.runtimeType == T);
+    _registeredTypes.removeWhere((e) => e == T);
+  }
 
   static T of<T extends Trigger>() {
     for (var instance in _instances) {
