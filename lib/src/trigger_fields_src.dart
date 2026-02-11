@@ -1,6 +1,6 @@
 part of 'trigger_widgets_src.dart';
 
-abstract class TriggerField with IterableMixin<String> {
+abstract class TriggerFields<T extends Trigger> with IterableMixin<String> {
   final List<String> _list = [];
 
   @override

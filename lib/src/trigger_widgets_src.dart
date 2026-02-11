@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import '../trigger.dart';
 
 part 'selftrigger_widget_src.dart';
-part 'trigger_field_src.dart';
+part 'trigger_fields_src.dart';
 
 mixin TriggerStateMixin<T extends StatefulWidget, U extends Trigger> on State<T>
     implements Updateable {
   U? _trigger;
   U get trigger => _trigger!;
-  Iterable<String> get listenTo;
+  TriggerFields<U> get listenTo;
 
   @override
   void didChangeDependencies() {
@@ -63,7 +63,7 @@ class TriggerWidget<U extends Trigger> extends StatefulWidget {
     required this.builder,
   });
 
-  final Iterable<String> listenTo;
+  final TriggerFields<U> listenTo;
   final Widget Function(BuildContext context, U trigger) builder;
 
   @override
@@ -76,5 +76,5 @@ class _TriggerWidgetState<U extends Trigger> extends State<TriggerWidget<U>>
   Widget build(BuildContext context) => widget.builder(context, trigger);
 
   @override
-  Iterable<String> get listenTo => widget.listenTo;
+  TriggerFields<U> get listenTo => widget.listenTo;
 }

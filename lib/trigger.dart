@@ -1,3 +1,9 @@
+import 'package:trigger/trigger_widgets.dart';
+import 'package:meta/meta.dart';
+export 'src/annotations.dart';
+
+part 'src/trigger_effect_src.dart';
+
 abstract interface class Updateable {
   void update();
 }
@@ -15,6 +21,10 @@ abstract base class Trigger {
     throw Exception('No instance of type $T found.');
   }
 
+  final Map<String, Set<String>> _impactMap = {};
+  final Map<String, Object?> _values = {};
+  final Map<String, Set<Updateable>> _listenMap = {};
+
   //This register flag is to register this trigger as singleton or not.
   Trigger([bool register = true]) {
     final onlyInstance = !_registeredTypes.contains(runtimeType);
@@ -27,19 +37,7 @@ abstract base class Trigger {
     }
   }
 
-  final Map<String, dynamic> _values = {};
-  final Map<String, Set<Updateable>> _listenMap = {};
-
-  void escapeHatch(
-    void Function(
-      Map<String, dynamic> valueMap,
-      Map<String, Set<Updateable>> listenMap,
-    )
-    func,
-  ) {
-    func(_values, _listenMap);
-  }
-
+  @protected
   void setValue(String key, dynamic value) {
     _values[key] = value;
     if (_listenMap.containsKey(key)) {
@@ -49,6 +47,7 @@ abstract base class Trigger {
     }
   }
 
+  @protected
   void setMultiValues(Map<String, dynamic> newValues) {
     Set<Updateable> statesToUpdate = {};
     newValues.forEach((key, value) {
@@ -60,10 +59,12 @@ abstract base class Trigger {
     }
   }
 
-  dynamic getValue(String key) {
+  @protected
+  Object? getValue(String key) {
     return _values[key];
   }
 
+  @protected
   void listenTo(String key, Updateable state) {
     if (!_listenMap.containsKey(key)) {
       _listenMap[key] = {};
@@ -76,46 +77,4 @@ abstract base class Trigger {
       states.remove(state);
     }
   }
-}
-
-void triggerEffect<T extends Trigger>({
-  required Iterable<String> listenTo,
-  required void Function(T) update,
-}) {
-  final trigger = Trigger.of<T>();
-  for (var key in listenTo) {
-    trigger.listenTo(key, _EffectUpdatable(() => update(trigger)));
-  }
-}
-
-class _EffectUpdatable implements Updateable {
-  final void Function() callback;
-
-  _EffectUpdatable(this.callback);
-
-  @override
-  void update() {
-    callback();
-  }
-}
-
-abstract base class TriggerEffect<T extends Trigger> implements Updateable {
-  T get trigger;
-  Iterable<String> get listenTo;
-
-  TriggerEffect() {
-    for (final key in listenTo) {
-      trigger.listenTo(key, this);
-    }
-  }
-
-  void dispose() {
-    trigger.stopListeningAll(this);
-  }
-}
-
-class TriggerGen {
-  final String name;
-
-  const TriggerGen(this.name);
 }

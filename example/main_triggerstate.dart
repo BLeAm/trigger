@@ -16,7 +16,7 @@ class Counter extends StatefulWidget {
 class _CounterState extends State<Counter>
     with TriggerStateMixin<Counter, MyTrigger> {
   @override
-  final List<String> listenTo = ['counter'];
+  final MyTriggerFields listenTo = MyTrigger.fields.counter;
 
   @override
   Widget build(BuildContext context) {

@@ -4,7 +4,7 @@ part of 'states.dart';
 
 base class MyTrigger extends Trigger {
   static final MyTrigger _instance = MyTrigger._internal();
-  static MyTriggerField fields() => MyTriggerField();
+  static final MyTriggerFields fields = MyTriggerFields();
 
   MyTrigger._internal([bool register = true]) : super(register) {
     counter = 0;
@@ -18,7 +18,7 @@ base class MyTrigger extends Trigger {
   factory MyTrigger() {
     return MyTrigger._instance;
   }
-  int get counter => getValue('counter')!;
+  int get counter => getValue('counter') as int;
   set counter(int val) => setValue('counter', val);
 
   void multiSet(void Function(_MyTriggerMultiSetter setter) func) {
@@ -28,8 +28,8 @@ base class MyTrigger extends Trigger {
   }
 }
 
-class MyTriggerField extends TriggerField {
-  MyTriggerField get counter {
+class MyTriggerFields extends TriggerFields<MyTrigger> {
+  MyTriggerFields get counter {
     addField('counter');
     return this;
   }

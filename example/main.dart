@@ -8,6 +8,24 @@ void main() {
   runApp(const MyApp());
 }
 
+class Counter extends StatefulWidget {
+  const Counter({super.key});
+
+  @override
+  State<Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<Counter>
+    with TriggerStateMixin<Counter, MyTrigger> {
+  @override
+  TriggerFields<MyTrigger> get listenTo => MyTriggerFields().counter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('${trigger.counter}');
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
@@ -36,7 +54,7 @@ class MyHomePage extends StatelessWidget {
           children: <Widget>[
             const Text('You have pushed the button this many times:'),
             TriggerWidget<MyTrigger>(
-              listenTo: MyTrigger.fields().counter,
+              listenTo: MyTrigger.fields.counter,
               builder: (context, trigger) => Text('${trigger.counter}'),
             ),
           ],
