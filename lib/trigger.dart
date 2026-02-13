@@ -46,6 +46,7 @@ abstract base class Trigger {
 
   @protected
   void setValue(String key, dynamic value) {
+  	
     _values[key] = value;
     if (_listenMap.containsKey(key)) {
       for (var state in _listenMap[key]!) {

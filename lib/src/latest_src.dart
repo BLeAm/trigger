@@ -34,8 +34,7 @@ class Latest<K> {
     required Future<T> Function() task,
     required void Function(T data) onSuccess,
     void Function(Object error)? onError,
-  }) {
-    // 1. ทิ้งสายใยเดิมทันที (Cancel existing logic)
+  }) async {
     final old = _registry.remove(key);
     if (old != null && !old.isCompleted) {
       old.completeError('_superseded_');
@@ -44,31 +43,33 @@ class Latest<K> {
     final completer = Completer<T>();
     _registry[key] = completer;
 
-    // 2. Execute งานจริง
-    task()
-        .then((value) {
-          if (!completer.isCompleted) completer.complete(value);
-        })
-        .catchError((e, stack) {
-          if (!completer.isCompleted) completer.completeError(e, stack);
-        });
+    // Execute task
+    try {
+      final value = await task();
+      if (!completer.isCompleted) completer.complete(value);
+    } catch (e, stack) {
+      if (!completer.isCompleted) completer.completeError(e, stack);
+    }
 
-    // 3. รอรับผลผ่านกำแพง Completer
-    completer.future
-        .then((value) {
-          // ตรวจสอบอีกครั้งว่าเรายังเป็น "คนล่าสุด" ใน Registry หรือไม่
-          // (เพื่อความปลอดภัยสูงสุดในจังหวะ Microtask)
-          if (_registry[key] == completer) {
-            onSuccess(value);
-            _registry.remove(key);
-          }
-        })
-        .catchError((e) {
-          if (e != '_superseded_') {
-            onError?.call(e);
-            if (_registry[key] == completer) _registry.remove(key);
-          }
-        });
+    // Handle results
+    try {
+      final result = await completer.future;
+      if (_registry[key] == completer) {
+        _registry.remove(key);
+        onSuccess(result); // ถ้า onSuccess พัง มันจะหลุดไปที่ catch ด้านล่าง
+      }
+    } catch (e) {
+      if (e == '_superseded_') return;
+
+      if (_registry[key] == completer) _registry.remove(key);
+
+      if (onError != null) {
+        onError(e);
+      } else {
+        // ถ้าไม่มี onError ให้ throw ออกไปเพื่อให้ Developer รู้ตัว
+        rethrow;
+      }
+    }
   }
 
   /// แถม: สั่งล้างงานทั้งหมด (ใช้ตอน dispose)

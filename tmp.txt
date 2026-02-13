@@ -1,0 +1,367 @@
+# ----------- trigger.dart -----------
+import 'dart:collection';
+import 'package:meta/meta.dart';
+
+export 'src/annotations.dart';
+
+part 'src/trigger_effect_src.dart';
+part 'src/trigger_fields_src.dart';
+
+abstract interface class Updateable {
+  void update();
+}
+
+abstract base class Trigger {
+  static final Set<Trigger> _instances = {};
+  static final Set<Type> _registeredTypes = {};
+
+  static void remove(Type T) {
+    _instances.removeWhere((e) => e.runtimeType == T);
+    _registeredTypes.removeWhere((e) => e == T);
+  }
+
+  static T of<T extends Trigger>() {
+    for (var instance in _instances) {
+      if (instance is T) {
+        return instance;
+      }
+    }
+    throw Exception('No instance of type $T found.');
+  }
+
+  final Map<String, Set<String>> _impactMap = {};
+  final Map<String, Object?> _values = {};
+  final Map<String, Set<Updateable>> _listenMap = {};
+
+  //This register flag is to register this trigger as singleton or not.
+  Trigger([bool register = true]) {
+    final onlyInstance = !_registeredTypes.contains(runtimeType);
+    if (register) {
+      if (!onlyInstance) {
+        throw StateError('Trigger $runtimeType already registered');
+      }
+      _instances.add(this);
+      _registeredTypes.add(runtimeType);
+    }
+  }
+
+  @protected
+  void setValue(String key, dynamic value) {
+    _values[key] = value;
+    if (_listenMap.containsKey(key)) {
+      for (var state in _listenMap[key]!) {
+        state.update();
+      }
+    }
+  }
+
+  @protected
+  void setMultiValues(Map<String, dynamic> newValues) {
+    Set<Updateable> statesToUpdate = {};
+    newValues.forEach((key, value) {
+      _values[key] = value;
+      statesToUpdate.addAll(_listenMap[key] ?? {});
+    });
+    for (var state in statesToUpdate) {
+      state.update();
+    }
+  }
+
+  @protected
+  Object? getValue(String key) {
+    return _values[key];
+  }
+
+  @protected
+  void listenTo(String key, Updateable state) {
+    if (!_listenMap.containsKey(key)) {
+      _listenMap[key] = {};
+    }
+    _listenMap[key]!.add(state);
+  }
+
+  void stopListeningAll(Updateable state) {
+    for (var states in _listenMap.values) {
+      states.remove(state);
+    }
+  }
+}
+
+
+
+
+# ----------- operations.dart -----------
+export 'src/latest_src.dart';
+
+
+
+
+# ----------- src/annotations.dart -----------
+class TriggerGen {
+  final String name;
+  final List<Type> fx;
+
+  const TriggerGen(this.name, {this.fx = const []});
+}
+
+
+
+
+# ----------- src/latest_src.dart -----------
+import 'dart:async';
+
+/// A utility to handle async tasks with Last-In-Wins policy.
+/// คลาสช่วยจัดการงานแบบ Latest-Only
+/// เหมาะกับกรณีที่ต้องการรันงานซ้ำๆ แต่สนใจแค่ผลลัพธ์ล่าสุดเท่านั้น
+/// เช่น การดึงข้อมูลจาก API ที่ต้องการแค่ผลลัพธ์ล่าสุด
+/// โดยงานเก่าจะถูกยกเลิกทันทีที่มีงานใหม่เข้ามาแทนที่
+/// ตัวอย่างการใช้งาน:
+/// ```dart
+/// final latest = Latest<String>();
+/// latest<int>(
+///   key: 'fetchData',
+///   task: () async {
+///     // ดึงข้อมูลจาก API
+///     return await fetchDataFromApi();
+///   },
+///   onSuccess: (data) {
+///     // อัพเดต UI ด้วยข้อมูลที่ได้
+///   },
+///   onError: (error) {
+///     // จัดการข้อผิดพลาด
+///   },
+/// );
+/// ```
+class Latest<K> {
+  final Map<K, Completer<dynamic>> _registry = {};
+
+  /// [key] คือ Identity ของงาน (String หรือ Enum, ฯลฯ แล้วแต่กรณีใช้งาน/userเลือก)
+  /// [task] คือ Future งานที่ต้องการรัน
+  /// [onSuccess] จะทำงานเมื่อเป็นงานล่าสุด ณ ตอนที่ operator เสร็จเท่านั้น
+  /// [onError] (Optional) สำหรับจัดการ Error ของงานล่าสุด
+  void call<T>({
+    required K key,
+    required Future<T> Function() task,
+    required void Function(T data) onSuccess,
+    void Function(Object error)? onError,
+  }) {
+    // 1. ทิ้งสายใยเดิมทันที (Cancel existing logic)
+    final old = _registry.remove(key);
+    if (old != null && !old.isCompleted) {
+      old.completeError('_superseded_');
+    }
+
+    final completer = Completer<T>();
+    _registry[key] = completer;
+
+    // 2. Execute งานจริง
+    task()
+        .then((value) {
+          if (!completer.isCompleted) completer.complete(value);
+        })
+        .catchError((e, stack) {
+          if (!completer.isCompleted) completer.completeError(e, stack);
+        });
+
+    // 3. รอรับผลผ่านกำแพง Completer
+    completer.future
+        .then((value) {
+          // ตรวจสอบอีกครั้งว่าเรายังเป็น "คนล่าสุด" ใน Registry หรือไม่
+          // (เพื่อความปลอดภัยสูงสุดในจังหวะ Microtask)
+          if (_registry[key] == completer) {
+            onSuccess(value);
+            _registry.remove(key);
+          }
+        })
+        .catchError((e) {
+          if (e != '_superseded_') {
+            onError?.call(e);
+            if (_registry[key] == completer) _registry.remove(key);
+          }
+        });
+  }
+
+  /// แถม: สั่งล้างงานทั้งหมด (ใช้ตอน dispose)
+  void cancelAll() {
+    for (var c in _registry.values) {
+      if (!c.isCompleted) c.completeError('_disposed_');
+    }
+    _registry.clear();
+  }
+}
+
+// enum _MyTask { waitAndPrint, run }
+
+// void _main() async {
+//   final latest = Latest<_MyTask>();
+//   latest<int>(
+//     key: _MyTask.waitAndPrint,
+//     task: () async {
+//       await Future.delayed(Duration(seconds: 5));
+//       return 5;
+//     },
+//     onSuccess: (value) {
+//       print('Fetched value: $value');
+//     },
+//   );
+//   latest<int>(
+//     key: _MyTask.waitAndPrint,
+//     task: () async {
+//       await Future.delayed(Duration(seconds: 2));
+//       return 2;
+//     },
+//     onSuccess: (value) {
+//       print('Fetched value: $value');
+//     },
+//   );
+// }
+
+
+
+
+# ----------- src/trigger_effect_src.dart -----------
+part of '../trigger.dart';
+
+Set<String> _getDeepAncestors(
+  String key,
+  Map<String, Set<String>> map,
+  Set<String> visited,
+) {
+  if (!map.containsKey(key) || visited.contains(key)) return {};
+
+  visited.add(key); // จดชื่อว่ากำลังเดินผ่าน
+
+  final results = <String>{...map[key]!};
+  for (final ancestor in map[key]!) {
+    results.addAll(_getDeepAncestors(ancestor, map, visited));
+  }
+
+  visited.remove(key); // <--- ถอนชื่อออกเพื่อให้กิ่งอื่นเข้าถึงได้
+  return results;
+}
+
+abstract base class TriggerEffect<T extends Trigger> implements Updateable {
+  T _trigger = Trigger.of<T>();
+  @protected
+  T get effectTrigger => _trigger;
+  TriggerFields<T> listenTo();
+  TriggerFields<T> allowedMutate();
+
+  late final List<String> _listenTo;
+  late final Set<String> _allowedMutate;
+
+  void checkAllow(String key) {
+    if (!_allowedMutate.contains(key))
+      throw StateError(
+        "Access Denied: Mutation of key '$key' is restricted. Only keys in [${_allowedMutate.join(', ')}] are allowed.",
+      );
+  }
+
+  // TriggerEffect([T? etrig = null]) {
+  //   if (etrig != null) {
+  //     _trigger = etrig;
+  //   }
+  //   _listenTo = listenTo().toList();
+  //   _allowedMutate = allowedMutate().toSet();
+
+  //   for (final key in _allowedMutate) {
+  //     if (!effectTrigger._cyclicDetect.containsKey(key)) {
+  //       effectTrigger._cyclicDetect[key] = {};
+  //     }
+  //     effectTrigger._cyclicDetect[key]!.addAll(_listenTo);
+  //     _allowedMutate.add(key);
+  //   }
+  //   for (final key in _listenTo) {
+  //     if (!effectTrigger._cyclicDetect.containsKey(key)) {
+  //       effectTrigger._cyclicDetect[key] = {};
+  //     }
+  //     final ckey = effectTrigger._cyclicDetect[key];
+  //     final lset = Set.from(_listenTo);
+
+  //     final cyclicCheck = effectTrigger._cyclicDetect[key]!.intersection(
+  //       Set.from(_allowedMutate),
+  //     );
+
+  //     if (cyclicCheck.length > 0) {
+  //       throw StateError(
+  //         "Cyclic update detected: The effect for '$key' triggered a mutation on '$cyclicCheck', causing an infinite loop.",
+  //       );
+  //     }
+  //     effectTrigger.listenTo(key, this);
+  //   }
+  // }
+
+  TriggerEffect([T? etrig = null]) {
+    if (etrig != null) {
+      _trigger = etrig;
+    }
+    _listenTo = listenTo().toList();
+    _allowedMutate = allowedMutate().toSet();
+
+    // --- ส่วนที่ปรับปรุงใหม่ ---
+
+    // 1. รวบรวม "ต้นเหตุ" ทั้งหมด (ทั้งทางตรงจาก _listenTo และทางอ้อมจากสิ่งที่บรรพบุรุษฟังมา)
+    // 2. ใน Constructor ตอนสะสม
+    final allAncestors = <String>{};
+    for (final lKey in _listenTo) {
+      allAncestors.add(lKey);
+      allAncestors.addAll(
+        _getDeepAncestors(lKey, effectTrigger._impactMap, {}),
+      );
+    }
+
+    // 2. ตรวจสอบว่า "ผลลัพธ์" ที่เราจะแก้มันไปทับซ้อนกับ "ต้นเหตุ" หรือไม่
+    for (final mKey in _allowedMutate) {
+      if (allAncestors.contains(mKey)) {
+        throw StateError(
+          "Cyclic update detected: The effect mutates '$mKey', but '$mKey' is already a root cause for this effect (directly or indirectly).",
+        );
+      }
+
+      // 3. บันทึกความสัมพันธ์ลงใน Trigger เพื่อให้ Effect ตัวถัดไปที่จะมาฟัง mKey รู้จักต้นตอ
+      // บันทึกแค่ทางตรง (Direct Link) เพื่อให้ Graph ข้อมูลไม่อึดอัด
+      if (!effectTrigger._impactMap.containsKey(mKey)) {
+        effectTrigger._impactMap[mKey] = {};
+      }
+      effectTrigger._impactMap[mKey]!.addAll(
+        _listenTo,
+      ); // ใส่แค่ _listenTo ไม่ต้อง allAncestors
+    }
+
+    // 4. เริ่มฟังค่า (Listen) ตามปกติ
+    for (final lKey in _listenTo) {
+      effectTrigger.listenTo(lKey, this);
+    }
+  }
+
+  void onTrigger();
+
+  void update() {
+    onTrigger();
+  }
+}
+
+
+
+
+# ----------- src/trigger_fields_src.dart -----------
+part of '../trigger.dart';
+
+abstract class TriggerFields<T extends Trigger> with IterableMixin<String> {
+  final List<String> _list = [];
+
+  @override
+  int get length => _list.length;
+  @override
+  Iterator<String> get iterator {
+    final res = List<String>.from(_list);
+    _list.clear();
+    return res.iterator;
+  }
+
+  void addField(String str) => _list.add(str);
+}
+
+
+
+
