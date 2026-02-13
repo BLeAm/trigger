@@ -31,6 +31,7 @@ abstract base class Trigger {
   final Map<String, Set<String>> _impactMap = {};
   final Map<String, Object?> _values = {};
   final Map<String, Set<Updateable>> _listenMap = {};
+  final Map<Updateable, Set<String>> _reverseListenMap = {};
 
   //This register flag is to register this trigger as singleton or not.
   Trigger([bool register = true]) {
@@ -46,7 +47,6 @@ abstract base class Trigger {
 
   @protected
   void setValue(String key, dynamic value) {
-  	
     _values[key] = value;
     if (_listenMap.containsKey(key)) {
       for (var state in _listenMap[key]!) {
@@ -74,15 +74,25 @@ abstract base class Trigger {
 
   @protected
   void listenTo(String key, Updateable state) {
-    if (!_listenMap.containsKey(key)) {
-      _listenMap[key] = {};
-    }
-    _listenMap[key]!.add(state);
+    // ฝั่ง Forward: Field นี้มีใครฟังบ้าง?
+    _listenMap.putIfAbsent(key, () => {}).add(state);
+
+    // ฝั่ง Reverse: Listener นี้ฟัง Field ไหนบ้าง? (Speed Boost อยู่ตรงนี้)
+    _reverseListenMap.putIfAbsent(state, () => {}).add(key);
   }
 
   void stopListeningAll(Updateable state) {
-    for (var states in _listenMap.values) {
-      states.remove(state);
+    // ดึงรายการ Fields ที่ต้องไปตามลบออกมาในทีเดียว
+    final keys = _reverseListenMap.remove(state);
+
+    if (keys != null) {
+      for (var key in keys) {
+        _listenMap[key]?.remove(state);
+        // แถม: ถ้า Field นั้นไม่มีคนฟังแล้ว จะลบ Set ทิ้งเพื่อคืน RAM ก็ได้นะ
+        if (_listenMap[key]?.isEmpty ?? false) {
+          _listenMap.remove(key);
+        }
+      }
     }
   }
 }
