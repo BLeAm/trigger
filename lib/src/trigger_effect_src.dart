@@ -1,115 +1,91 @@
 part of '../trigger.dart';
 
-Set<String> _getDeepAncestors(
-  String key,
-  Map<String, Set<String>> map,
-  Set<String> visited,
-) {
-  if (!map.containsKey(key) || visited.contains(key)) return {};
-
-  visited.add(key); // จดชื่อว่ากำลังเดินผ่าน
-
-  final results = <String>{...map[key]!};
-  for (final ancestor in map[key]!) {
-    results.addAll(_getDeepAncestors(ancestor, map, visited));
-  }
-
-  visited.remove(key); // <--- ถอนชื่อออกเพื่อให้กิ่งอื่นเข้าถึงได้
-  return results;
-}
+// --- ยกเลิกการใช้ _getDeepAncestors (แบบ Recursion) ---
 
 abstract base class TriggerEffect<T extends Trigger> implements Updateable {
-  T _trigger = Trigger.of<T>();
+  late T _trigger;
   @protected
-  T get effectTrigger => _trigger;
-  TriggerFields<T> listenTo();
-  TriggerFields<T> allowedMutate();
+  T get trigger => _trigger;
+
+  TriggerFields<T> get listenTo;
+  TriggerFields<T> get allowedMutate;
 
   late final List<String> _listenTo;
   late final Set<String> _allowedMutate;
 
   void checkAllow(String key) {
-    if (!_allowedMutate.contains(key))
+    if (!_allowedMutate.contains(key)) {
       throw StateError(
         "Access Denied: Mutation of key '$key' is restricted. Only keys in [${_allowedMutate.join(', ')}] are allowed.",
       );
+    }
   }
 
-  // TriggerEffect([T? etrig = null]) {
-  //   if (etrig != null) {
-  //     _trigger = etrig;
-  //   }
-  //   _listenTo = listenTo().toList();
-  //   _allowedMutate = allowedMutate().toSet();
+  TriggerEffect(T trigger) {
+    _trigger = trigger;
+    _listenTo = listenTo.toList();
+    _allowedMutate = allowedMutate.toSet();
 
-  //   for (final key in _allowedMutate) {
-  //     if (!effectTrigger._cyclicDetect.containsKey(key)) {
-  //       effectTrigger._cyclicDetect[key] = {};
-  //     }
-  //     effectTrigger._cyclicDetect[key]!.addAll(_listenTo);
-  //     _allowedMutate.add(key);
-  //   }
-  //   for (final key in _listenTo) {
-  //     if (!effectTrigger._cyclicDetect.containsKey(key)) {
-  //       effectTrigger._cyclicDetect[key] = {};
-  //     }
-  //     final ckey = effectTrigger._cyclicDetect[key];
-  //     final lset = Set.from(_listenTo);
-
-  //     final cyclicCheck = effectTrigger._cyclicDetect[key]!.intersection(
-  //       Set.from(_allowedMutate),
-  //     );
-
-  //     if (cyclicCheck.length > 0) {
-  //       throw StateError(
-  //         "Cyclic update detected: The effect for '$key' triggered a mutation on '$cyclicCheck', causing an infinite loop.",
-  //       );
-  //     }
-  //     effectTrigger.listenTo(key, this);
-  //   }
-  // }
-
-  TriggerEffect([T? etrig = null]) {
-    if (etrig != null) {
-      _trigger = etrig;
-    }
-    _listenTo = listenTo().toList();
-    _allowedMutate = allowedMutate().toSet();
-
-    // --- ส่วนที่ปรับปรุงใหม่ ---
-
-    // 1. รวบรวม "ต้นเหตุ" ทั้งหมด (ทั้งทางตรงจาก _listenTo และทางอ้อมจากสิ่งที่บรรพบุรุษฟังมา)
-    // 2. ใน Constructor ตอนสะสม
-    final allAncestors = <String>{};
+    // 1. ตรวจสอบ Cycle สำหรับทุกๆ key ที่เรากำลังจะ "ฟัง" (Listen)
     for (final lKey in _listenTo) {
-      allAncestors.add(lKey);
-      allAncestors.addAll(
-        _getDeepAncestors(lKey, effectTrigger._impactMap, {}),
-      );
+      _verifyNoPathToTargets(lKey, _allowedMutate, this.trigger._impactMap);
     }
 
-    // 2. ตรวจสอบว่า "ผลลัพธ์" ที่เราจะแก้มันไปทับซ้อนกับ "ต้นเหตุ" หรือไม่
+    // 2. ถ้าผ่านการเช็ค (ไม่มี Error) ให้บันทึกความสัมพันธ์ลงใน _impactMap ของ Trigger
+    // บันทึกว่า: ถ้า mKey เปลี่ยน (Mutate) จะส่งผลกระทบย้อนกลับไปหาต้นตอ (lKey)
     for (final mKey in _allowedMutate) {
-      if (allAncestors.contains(mKey)) {
-        throw StateError(
-          "Cyclic update detected: The effect mutates '$mKey', but '$mKey' is already a root cause for this effect (directly or indirectly).",
-        );
+      final impactSet = this.trigger._impactMap.putIfAbsent(mKey, () => {});
+      for (final lKey in _listenTo) {
+        impactSet.add(lKey);
       }
-
-      // 3. บันทึกความสัมพันธ์ลงใน Trigger เพื่อให้ Effect ตัวถัดไปที่จะมาฟัง mKey รู้จักต้นตอ
-      // บันทึกแค่ทางตรง (Direct Link) เพื่อให้ Graph ข้อมูลไม่อึดอัด
-      if (!effectTrigger._impactMap.containsKey(mKey)) {
-        effectTrigger._impactMap[mKey] = {};
-      }
-      effectTrigger._impactMap[mKey]!.addAll(
-        _listenTo,
-      ); // ใส่แค่ _listenTo ไม่ต้อง allAncestors
     }
 
-    // 4. เริ่มฟังค่า (Listen) ตามปกติ
+    // 3. เริ่มฟังค่า (Listen) ตามปกติ
     for (final lKey in _listenTo) {
-      effectTrigger.listenTo(lKey, this);
+      this.trigger.listenTo(lKey, this);
     }
+  }
+
+  /// ฟังก์ชันใหม่: ใช้ BFS หาทางเดินจาก start ไปยังกลุ่มเป้าหมาย (targetKeys)
+  void _verifyNoPathToTargets(
+    String startKey,
+    Set<String> targetKeys,
+    Map<String, Set<String>> map,
+  ) {
+    // กรณีพื้นฐาน: ถ้าต้นตอ (Listen) กับเป้าหมาย (Mutate) เป็นตัวเดียวกัน
+    if (targetKeys.contains(startKey)) {
+      _throwCycleError(startKey, startKey);
+    }
+
+    final queue = Queue<String>()..add(startKey);
+    final visited = <String>{startKey};
+
+    while (queue.isNotEmpty) {
+      final current = queue.removeFirst();
+      final neighbors = map[current];
+
+      if (neighbors != null) {
+        for (final next in neighbors) {
+          // ถ้าเจอว่าเพื่อนบ้านตัวไหนอยู่ในกลุ่มเป้าหมาย แปลว่าเกิด Cycle
+          if (targetKeys.contains(next)) {
+            _throwCycleError(startKey, next);
+          }
+
+          // ถ้ายังไม่เคยไปที่ Node นี้ ให้ใส่ Queue เพื่อค้นหาต่อ
+          if (!visited.contains(next)) {
+            visited.add(next);
+            queue.add(next);
+          }
+        }
+      }
+    }
+  }
+
+  void _throwCycleError(String listen, String mutate) {
+    throw StateError(
+      "Cyclic update detected: This effect listens to '$listen' but tries to mutate '$mutate', "
+      "which eventually impacts '$listen' again (Circular Dependency).",
+    );
   }
 
   void onTrigger();

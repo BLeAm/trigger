@@ -11,45 +11,38 @@ abstract interface class Updateable {
 }
 
 abstract base class Trigger {
-  static final Set<Trigger> _instances = {};
-  static final Set<Type> _registeredTypes = {};
-
-  static void remove(Type T) {
-    _instances.removeWhere((e) => e.runtimeType == T);
-    _registeredTypes.removeWhere((e) => e == T);
-  }
+  // 1. เปลี่ยนเป็น Map เพื่อให้ of<T>() เป็น O(1)
+  static final Map<Type, Trigger> _instances = {};
 
   static T of<T extends Trigger>() {
-    for (var instance in _instances) {
-      if (instance is T) {
-        return instance;
-      }
-    }
+    final instance = _instances[T];
+    if (instance != null) return instance as T;
     throw Exception('No instance of type $T found.');
   }
 
   final Map<String, Set<String>> _impactMap = {};
   final Map<String, Object?> _values = {};
   final Map<String, Set<Updateable>> _listenMap = {};
-  final Map<Updateable, Set<String>> _reverseListenMap = {};
+  final Map<Updateable, Set<String>> _reverseListenMap =
+      LinkedHashMap.identity();
 
   //This register flag is to register this trigger as singleton or not.
   Trigger([bool register = true]) {
-    final onlyInstance = !_registeredTypes.contains(runtimeType);
     if (register) {
-      if (!onlyInstance) {
+      if (_instances.containsKey(runtimeType)) {
         throw StateError('Trigger $runtimeType already registered');
       }
-      _instances.add(this);
-      _registeredTypes.add(runtimeType);
+      _instances[runtimeType] = this;
     }
   }
 
   @protected
   void setValue(String key, dynamic value) {
     _values[key] = value;
-    if (_listenMap.containsKey(key)) {
-      for (var state in _listenMap[key]!) {
+    final listeners = _listenMap[key];
+    if (listeners != null) {
+      // ใช้ for-in แทน .forEach เพื่อลด overhead ของ closure
+      for (final state in listeners) {
         state.update();
       }
     }
@@ -57,15 +50,26 @@ abstract base class Trigger {
 
   @protected
   void setMultiValues(Map<String, dynamic> newValues) {
-    Set<Updateable> statesToUpdate = {};
-    newValues.forEach((key, value) {
-      _values[key] = value;
-      statesToUpdate.addAll(_listenMap[key] ?? {});
-    });
-    for (var state in statesToUpdate) {
+    final Set<Updateable> statesToUpdate = LinkedHashSet.identity();
+
+    // 2. ใช้ for-in ประสิทธิภาพดีกว่า .forEach
+    for (final entry in newValues.entries) {
+      final key = entry.key;
+      _values[key] = entry.value;
+
+      final listeners = _listenMap[key];
+      if (listeners != null) {
+        statesToUpdate.addAll(listeners);
+      }
+    }
+
+    for (final state in statesToUpdate) {
       state.update();
     }
   }
+
+  @protected
+  bool hasListeners() => _listenMap.isNotEmpty;
 
   @protected
   Object? getValue(String key) {
@@ -74,25 +78,56 @@ abstract base class Trigger {
 
   @protected
   void listenTo(String key, Updateable state) {
-    // ฝั่ง Forward: Field นี้มีใครฟังบ้าง?
-    _listenMap.putIfAbsent(key, () => {}).add(state);
-
-    // ฝั่ง Reverse: Listener นี้ฟัง Field ไหนบ้าง? (Speed Boost อยู่ตรงนี้)
+    // ใช้ LinkedHashSet.identity เพื่อความเร็วในการจัดการ Listener
+    _listenMap.putIfAbsent(key, () => LinkedHashSet.identity()).add(state);
     _reverseListenMap.putIfAbsent(state, () => {}).add(key);
   }
 
   void stopListeningAll(Updateable state) {
-    // ดึงรายการ Fields ที่ต้องไปตามลบออกมาในทีเดียว
     final keys = _reverseListenMap.remove(state);
-
     if (keys != null) {
-      for (var key in keys) {
-        _listenMap[key]?.remove(state);
-        // แถม: ถ้า Field นั้นไม่มีคนฟังแล้ว จะลบ Set ทิ้งเพื่อคืน RAM ก็ได้นะ
-        if (_listenMap[key]?.isEmpty ?? false) {
-          _listenMap.remove(key);
+      for (final key in keys) {
+        final listeners = _listenMap[key];
+        if (listeners != null) {
+          listeners.remove(state);
+          if (listeners.isEmpty) {
+            _listenMap.remove(key);
+          }
         }
       }
+    }
+  }
+
+  // เพิ่มเข้าไปใน abstract base class Trigger ในไฟล์ lib/trigger.dart
+  void dumpDepsGraph() {
+    print('=== Trigger Impact Graph [${runtimeType}] ===');
+    if (_impactMap.isEmpty) {
+      print('Empty graph');
+      return;
+    }
+
+    // เรียงลำดับ Key เพื่อให้หาได้ง่าย
+    final sortedKeys = _impactMap.keys.toList()..sort();
+
+    for (final mKey in sortedKeys) {
+      final listeners = _impactMap[mKey]!;
+      final sortedListeners = listeners.toList()..sort();
+
+      // แสดงผลในรูปแบบ: MutateKey -> [ListenKey1, ListenKey2, ...]
+      // ความหมายคือ: ถ้า MutateKey เปลี่ยน จะกระทบไปยังกลุ่มที่ฟัง ListenKeys เหล่านี้
+      print('  $mKey ⟸ [${sortedListeners.join(', ')}]');
+    }
+    print('==============================================');
+  }
+
+  void dispose() {
+    _values.clear();
+    _listenMap.clear();
+    _reverseListenMap.clear();
+    _impactMap.clear();
+
+    if (_instances[runtimeType] == this) {
+      _instances.remove(runtimeType);
     }
   }
 }
