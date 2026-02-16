@@ -1,11 +1,11 @@
-# Trigger 🔗
+# Trigger 
 
 **Trigger** is a deterministic reactive state framework for Flutter.  
 It enforces a **static acyclic dependency graph at initialization**, It enforces a static acyclic dependency graph at initialization — guaranteeing predictable updates, eliminating structural cycles, and simplifying data flow reasoning.
 
 ---
 
-## ✨ Why Trigger?
+##  Why Trigger?
 - **Deterministic by Design**  
   Trigger locks the dependency graph at init-time. No hidden structural cycles. No runtime graph mutations. Your app’s state updates are predictable by construction.
 
@@ -16,7 +16,7 @@ It enforces a **static acyclic dependency graph at initialization**, It enforces
   With `dumpDepsGraph()`, you can visualize the dependency graph in seconds. See which fields impact which effects, and reason about your data flow without guesswork.
 
 - **Separation of Concerns**  
-  Effects live outside the UI. Business logic and state transformations are explicit, structured, and easy to reason about — unlike ad-hoc `ref.watch` scattered across widgets.
+  Effects live outside the UI. Business logic and state transformations are explicit, structured, and easy to reason about.
 
 - **Simple Mode or Structural Mode**  
   - *Simple*: Use Trigger without Effects — lightweight, no ceremony.  
@@ -24,7 +24,7 @@ It enforces a **static acyclic dependency graph at initialization**, It enforces
 
 ---
 
-## 🚀 Philosophy
+## Philosophy
 Trigger trades a little ceremony for **clarity and robustness**.  
 It reduces structural and defensive testing overhead, eliminates defensive coding against cycles, and lowers cognitive load when reasoning about complex state flows.  
 
@@ -32,7 +32,7 @@ It reduces structural and defensive testing overhead, eliminates defensive codin
 
 ---
 
-## 🛠 Example
+## Example
 
 ```dart
 @TriggerGen("MainStates", fx: [BMIEffect])
