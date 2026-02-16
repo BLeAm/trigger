@@ -54,3 +54,5 @@ app.*.map.json
 pubspec.lock
 
 python_codegen/trigger_generator.egg-info/
+pclist.txt
+tmp.txt
