@@ -23,8 +23,8 @@ abstract base class TriggerEffect<T extends Trigger> implements Updateable {
 
   TriggerEffect(T trigger) {
     _trigger = trigger;
-    _listenTo = listenTo.toList();
-    _allowedMutate = allowedMutate.toSet();
+    _listenTo = listenTo.getList();
+    _allowedMutate = allowedMutate.getList().toSet();
 
     // 1. ตรวจสอบ Cycle สำหรับทุกๆ key ที่เรากำลังจะ "ฟัง" (Listen)
     for (final lKey in _listenTo) {

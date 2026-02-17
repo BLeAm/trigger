@@ -1,15 +1,15 @@
 part of '../trigger.dart';
 
-abstract class TriggerFields<T extends Trigger> with IterableMixin<String> {
+abstract class TriggerFields<T extends Trigger> {
   final List<String> _list = [];
+  bool _isUsed = false;
 
-  @override
-  int get length => _list.length;
-  @override
-  Iterator<String> get iterator {
-    final res = List<String>.from(_list);
-    _list.clear();
-    return res.iterator;
+  List<String> getList() {
+    if (_isUsed) {
+      throw StateError('TriggerFields can only be executed once.');
+    }
+    _isUsed = true;
+    return _list;
   }
 
   void addField(String str) => _list.add(str);
