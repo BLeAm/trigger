@@ -7,6 +7,7 @@ export 'src/annotations.dart';
 part 'src/trigger_effect_src.dart';
 part 'src/trigger_fields_src.dart';
 part 'src/scheduler_src.dart';
+part 'src/trigger_inspector.dart';
 
 abstract interface class Updateable {
   void update();
@@ -91,22 +92,6 @@ abstract base class Trigger {
     }
   }
 
-  // เพิ่มเข้าไปใน abstract base class Trigger ในไฟล์ lib/trigger.dart
-  void dumpDepsGraph() {
-    print('=== Trigger Impact Graph [${runtimeType}] ===');
-    if (_impactMap.isEmpty) {
-      print('Empty graph');
-      return;
-    }
-    final sortedKeys = _impactMap.keys.toList()..sort();
-    for (final mKey in sortedKeys) {
-      final listeners = _impactMap[mKey]!;
-      final sortedListeners = listeners.toList()..sort();
-      print('  $mKey ⟸ [${sortedListeners.join(', ')}]');
-    }
-    print('==============================================');
-  }
-
   @mustCallSuper
   void dispose() {
     // ถ้าเป็น Singleton เราอาจจะไม่ต้องการให้ dispose
@@ -122,12 +107,5 @@ abstract base class Trigger {
     _listenMap.clear();
     _reverseListenMap.clear();
     _impactMap.clear();
-  }
-}
-
-void logBatchUpdate(Set<Updateable> updatedStates) {
-  print('🔔 [Batch Update] ${updatedStates.length} states rebuilt:');
-  for (var s in updatedStates) {
-    print('   -> ${s.runtimeType}');
   }
 }

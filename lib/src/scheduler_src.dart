@@ -1,12 +1,15 @@
 part of '../trigger.dart';
 
+// ประกาศลายเซ็นของฟังก์ชันที่จะใช้ส่อง
+typedef BatchUpdateHook = void Function(Set<Updateable> updatedStates);
+
 /// ตัวจัดการคิวการอัปเดต (Batching Engine)
 class UpdateScheduler {
   final Set<Updateable> _updateQueue = LinkedHashSet.identity();
   bool _isBatchingScheduled = false;
 
   // Hook สำหรับทำ Logger หรือ Debug
-  void Function(Set<Updateable> updatedStates)? onBatchUpdate;
+  BatchUpdateHook? onBatchUpdate;
 
   void enqueue(Iterable<Updateable>? listeners) {
     if (listeners == null || listeners.isEmpty) return;
@@ -20,21 +23,47 @@ class UpdateScheduler {
     }
   }
 
+  //เก่า
+  // void _processQueue() {
+  //   if (onBatchUpdate != null) {
+  //     onBatchUpdate!(Set.unmodifiable(_updateQueue));
+  //   }
+
+  //   for (final state in _updateQueue) {
+  //     try {
+  //       state.update();
+  //     } catch (e, stack) {
+  //       Zone.current.handleUncaughtError(e, stack);
+  //     }
+  //   }
+
+  //   _updateQueue.clear();
+  //   _isBatchingScheduled = false;
+  // }
+
+  //ใหม่
   void _processQueue() {
+    if (_updateQueue.isEmpty) return;
+
+    // 1. Snapshot: ย้ายงานทั้งหมดออกมาใส่รายการใหม่
+    final processingList = _updateQueue.toList();
+
+    // 2. ล้างคิวหลักทันที เพื่อรองรับ mutation ใหม่ๆ ที่จะเกิดขึ้นระหว่าง update()
+    _updateQueue.clear();
+    _isBatchingScheduled = false;
+
     if (onBatchUpdate != null) {
-      onBatchUpdate!(Set.from(_updateQueue));
+      onBatchUpdate!(Set.unmodifiable(processingList));
     }
 
-    for (final state in _updateQueue) {
+    // 3. วนลูปจากรายการที่เรา Snapshot ไว้
+    for (final state in processingList) {
       try {
         state.update();
       } catch (e, stack) {
         Zone.current.handleUncaughtError(e, stack);
       }
     }
-
-    _updateQueue.clear();
-    _isBatchingScheduled = false;
   }
 
   /// ใช้สำหรับล้างคิวค้างในกรณีพิเศษ เช่น การรัน Test ใหม่
