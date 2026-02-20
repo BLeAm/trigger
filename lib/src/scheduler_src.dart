@@ -9,7 +9,9 @@ class UpdateScheduler {
   bool _isBatchingScheduled = false;
 
   // Hook สำหรับทำ Logger หรือ Debug
-  BatchUpdateHook? onBatchUpdate;
+  final List<BatchUpdateHook> _hooks = [];
+
+  void addBatchHook(BatchUpdateHook hook) => _hooks.add(hook);
 
   void enqueue(Iterable<Updateable>? listeners) {
     if (listeners == null || listeners.isEmpty) return;
@@ -23,25 +25,6 @@ class UpdateScheduler {
     }
   }
 
-  //เก่า
-  // void _processQueue() {
-  //   if (onBatchUpdate != null) {
-  //     onBatchUpdate!(Set.unmodifiable(_updateQueue));
-  //   }
-
-  //   for (final state in _updateQueue) {
-  //     try {
-  //       state.update();
-  //     } catch (e, stack) {
-  //       Zone.current.handleUncaughtError(e, stack);
-  //     }
-  //   }
-
-  //   _updateQueue.clear();
-  //   _isBatchingScheduled = false;
-  // }
-
-  //ใหม่
   void _processQueue() {
     if (_updateQueue.isEmpty) return;
 
@@ -51,11 +34,11 @@ class UpdateScheduler {
     // 2. ล้างคิวหลักทันที เพื่อรองรับ mutation ใหม่ๆ ที่จะเกิดขึ้นระหว่าง update()
     _updateQueue.clear();
     _isBatchingScheduled = false;
-
-    if (onBatchUpdate != null) {
-      onBatchUpdate!(Set.unmodifiable(processingList));
+    // 1.3 วนลูปแจ้งเตือนทุกลูกตัวที่มา Register ไว้
+    final updatedSet = Set<Updateable>.unmodifiable(processingList);
+    for (final hook in _hooks) {
+      hook(updatedSet);
     }
-
     // 3. วนลูปจากรายการที่เรา Snapshot ไว้
     for (final state in processingList) {
       try {
