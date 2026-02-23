@@ -10,25 +10,33 @@ class TriggerInspector<T extends Trigger> {
   // เก็บสถิติ: ประเภท Widget -> จำนวนครั้งที่ rebuild
   final Map<Type, int> _rebuildStats = {};
 
+  // --- Helper: แปลง Index เป็น Name หรือเลข Index ถ้าหาไม่เจอ ---
+  String _nameOf(int index) => _trigger._fieldNames[index];
+
   void printValuesTable() {
     print('\n📊 Values Table [${_trigger.runtimeType}]');
     print('-------------------------------------------');
-    _trigger._values.forEach((key, value) {
-      print('${key.padRight(15)} : $value (${value.runtimeType})');
-    });
+    for (int i = 0; i < _trigger._values.length; i++) {
+      final name = _nameOf(i);
+      final value = _trigger._values[i];
+      print('${name.padRight(15)} : $value (${value.runtimeType})');
+    }
     print('-------------------------------------------\n');
   }
 
   void printListenTable() {
     print('\n👂 Listen Table (Who is listening to what?)');
     print('-------------------------------------------');
-    _trigger._listenMap.forEach((key, listeners) {
-      print('${key.padRight(15)} : ${listeners.length} listeners');
+    for (int i = 0; i < _trigger._listenMap.length; i++) {
+      final name = _nameOf(i);
+      final listeners = _trigger._listenMap[i];
+      if (listeners.isEmpty) continue;
+
+      print('${name.padRight(15)} : ${listeners.length} listeners');
       for (var l in listeners) {
-        print('   └─> ${l}');
-        // print('   └─> ${l.runtimeType}');
+        print('   └─> $l');
       }
-    });
+    }
     print('-------------------------------------------\n');
   }
 
@@ -40,50 +48,42 @@ class TriggerInspector<T extends Trigger> {
       print('Empty graph');
       return;
     }
-    // สร้าง Map กลับด้าน: Source -> List of Targets
-    final reverseMap = <String, List<String>>{};
-    impactMap.forEach((target, sources) {
-      for (var src in sources) {
-        reverseMap.putIfAbsent(src, () => []).add(target);
-      }
-    });
 
-    final targetMap = trace ? impactMap : reverseMap;
+    // สร้าง Map: SourceIndex -> List<TargetIndex>
+    // trace = true:  Mutate -> ผลกระทบไปที่ไหนบ้าง
+    // trace = false: Listen -> ถูกกระตุ้นโดยอะไรบ้าง
+    final Map<int, List<int>> targetMap = {};
+    if (trace) {
+      impactMap.forEach((mIdx, lIndices) {
+        targetMap[mIdx] = lIndices.toList();
+      });
+    } else {
+      impactMap.forEach((mIdx, lIndices) {
+        for (var lIdx in lIndices) {
+          targetMap.putIfAbsent(lIdx, () => []).add(mIdx);
+        }
+      });
+    }
 
-    // 1. หา "Root Fields" (Field ที่ไม่มีใครสั่งมันมา)
     final allTargets = targetMap.values.expand((e) => e).toSet();
-    final rootFields = targetMap.keys
-        .where((field) => !allTargets.contains(field))
+    final rootIndices = targetMap.keys
+        .where((idx) => !allTargets.contains(idx))
         .toList();
-    rootFields.sort(); // เรียงชื่อให้สวยงาม
 
-    // 2. ฟังก์ชัน Recursive สำหรับวาดกิ่ง
-    void printNode(String node, String prefix, bool isLast) {
-      // เลือกใช้สัญลักษณ์ให้เหมาะสม
+    void printNode(int idx, String prefix, bool isLast) {
       final marker = isLast ? '└── ' : '├── ';
-      print('$prefix$marker$node');
+      print('$prefix$marker${_nameOf(idx)}');
 
-      final children = targetMap[node]?.toList() ?? [];
-      children.sort();
-
-      // วาดลูกๆ ต่อลงไป
+      final children = targetMap[idx] ?? [];
       for (int i = 0; i < children.length; i++) {
         final newPrefix = prefix + (isLast ? '    ' : '│   ');
         printNode(children[i], newPrefix, i == children.length - 1);
       }
     }
 
-    // 3. เริ่มวาดจาก Root แต่ละตัว
-    if (rootFields.isEmpty && targetMap.isNotEmpty) {
-      // กรณีที่ทุกตัวเกี่ยวพันกันหมด (ซึ่งไม่น่าเกิดถ้าไม่มี cycle)
-      print('Note: Complex dependency detected.');
-      rootFields.addAll(targetMap.keys);
+    for (int i = 0; i < rootIndices.length; i++) {
+      printNode(rootIndices[i], '', i == rootIndices.length - 1);
     }
-
-    for (int i = 0; i < rootFields.length; i++) {
-      printNode(rootFields[i], '', i == rootFields.length - 1);
-    }
-
     print('==============================================');
   }
 
@@ -93,23 +93,20 @@ class TriggerInspector<T extends Trigger> {
 
     bool isHealthy = true;
 
-    // 1. ตรวจสอบโครงสร้าง (Static)
-    final overCrowded = _trigger._listenMap.entries.where(
-      (e) => e.value.length > 10,
-    );
-    if (overCrowded.isNotEmpty) {
-      isHealthy = false;
-      for (var entry in overCrowded) {
+    // 1. ตรวจสอบโครงสร้าง (Static) - ดูว่า Field ไหนคนฟังเยอะเกินไป
+    for (int i = 0; i < _trigger._listenMap.length; i++) {
+      final listeners = _trigger._listenMap[i];
+      if (listeners.length > 10) {
+        isHealthy = false;
         print(
-          '⚠️ Structure: Key [${entry.key}] has too many listeners (${entry.value.length}).',
+          '⚠️ Structure: Key [${_nameOf(i)}] has too many listeners (${listeners.length}).',
         );
       }
     }
 
-    // 2. ตรวจสอบพฤติกรรม (Runtime - จาก Heatmap)
-    final hotWidgets = _rebuildStats.entries.where(
-      (e) => e.value > 50,
-    ); // สมมติว่าเกิน 50 คือร้อน
+    // 2. ตรวจสอบพฤติกรรม (Runtime) - ดึงจาก Heatmap (_rebuildStats)
+    // ส่วนนี้ไม่ต้องแก้เยอะเพราะ _rebuildStats ยังเป็น Map<Type, int> เหมือนเดิม
+    final hotWidgets = _rebuildStats.entries.where((e) => e.value > 50);
     if (hotWidgets.isNotEmpty) {
       isHealthy = false;
       for (var entry in hotWidgets) {
@@ -119,10 +116,15 @@ class TriggerInspector<T extends Trigger> {
       }
     }
 
-    // 3. ตรวจสอบส่วนเกิน (Orphans)
-    final orphans = _trigger._values.keys.where(
-      (k) => !_trigger._listenMap.containsKey(k),
-    );
+    // 3. ตรวจสอบส่วนเกิน (Orphans) - Field ที่ไม่มีใครฟังเลย
+    final orphans = <String>[];
+    for (int i = 0; i < _trigger._values.length; i++) {
+      // ใน List-based เราเช็คว่า Set ใน _listenMap ว่างหรือไม่
+      if (_trigger._listenMap[i].isEmpty) {
+        orphans.add(_nameOf(i));
+      }
+    }
+
     if (orphans.isNotEmpty) {
       print(
         'ℹ️ Optimization: Fields with no listeners (consider removing): ${orphans.join(", ")}',
@@ -143,18 +145,16 @@ class TriggerInspector<T extends Trigger> {
       final myWidgets = updatedStates.where(
         (s) => _trigger._reverseListenMap.containsKey(s),
       );
-
       if (myWidgets.isNotEmpty) {
         if (enableHeatmap) {
           for (var s in myWidgets) {
-            final type = s.runtimeType;
-            _rebuildStats[type] = (_rebuildStats[type] ?? 0) + 1;
+            _rebuildStats[s.runtimeType] =
+                (_rebuildStats[s.runtimeType] ?? 0) + 1;
           }
         }
         print(
           '🔔 [${_trigger.runtimeType}] Batch Update: ${myWidgets.length} widgets rebuilt.',
         );
-        // takeSnapshot();
       }
     });
   }
@@ -187,25 +187,29 @@ class TriggerInspector<T extends Trigger> {
       return;
     }
 
-    int getDepth(String field, Set<String> visited) {
-      if (!impactMap.containsKey(field)) return 0;
-      if (visited.contains(field))
-        return 0; // กันตายถ้ามี cycle (แต่ปกติเราดักไว้แล้ว)
+    // เปลี่ยนจาก String field เป็น int index
+    int getDepth(int idx, Set<int> visited) {
+      if (!impactMap.containsKey(idx)) return 0;
+      if (visited.contains(idx))
+        return 0; // กัน Cycle (ซึ่งดักไว้แล้วตอนสร้าง Effect)
 
-      visited.add(field);
+      visited.add(idx);
       int maxChildDepth = 0;
-      for (var dependent in impactMap[field]!) {
-        final d = getDepth(dependent, visited);
+
+      // วนลูปตามกลุ่มของ Listener Indices ที่ได้รับผลกระทบ
+      for (var dependentIdx in impactMap[idx]!) {
+        final d = getDepth(dependentIdx, visited);
         if (d > maxChildDepth) maxChildDepth = d;
       }
-      visited.remove(field);
+      visited.remove(idx);
 
       return 1 + maxChildDepth;
     }
 
     int overallMax = 0;
-    for (var field in impactMap.keys) {
-      final d = getDepth(field, {});
+    // วนลูปหา Depth จากทุก Key ที่อยู่ใน Impact Map
+    for (var idx in impactMap.keys) {
+      final d = getDepth(idx, {});
       if (d > overallMax) overallMax = d;
     }
 
@@ -226,26 +230,30 @@ class TriggerInspector<T extends Trigger> {
   }
 
   // ฟังก์ชันบันทึกที่สร้าง Object StateChangeLog
-  void takeSnapshot([Set<String>? impacts]) {
+  // --- Snapshot Logic (ใช้ Map<int, Object?> เพื่อประหยัดพื้นที่กว่าเก็บ List เต็ม) ---
+  void takeSnapshot([Set<int>? impacts]) {
     final log = _StateChangeLog(
       timestamp: DateTime.now(),
-      values: Map<String, Object?>.from(_trigger._values),
-      impactFields: impacts,
+      // เก็บเป็น List<Object?> เหมือนโครงสร้างจริง
+      values: List<Object?>.from(_trigger._values),
+      impactIndices: impacts,
     );
-
     _history.add(log);
     if (_history.length > _maxHistory) _history.removeAt(0);
   }
 
   // 2.3 ฟังก์ชันย้อนกลับ
   void undo() {
-    if (_history.length < 2) return; // ไม่มีอะไรให้ย้อน หรือมีแค่ค่าปัจจุบัน
+    if (_history.length < 2) return;
+    _history.removeLast();
+    final prevState = _history.last;
 
-    _history.removeLast(); // เอาค่าปัจจุบันออก
-    final previousState = _history.last;
-
-    // ยัดค่ากลับเข้า Trigger ผ่าน setMultiValues เพื่อกระตุ้น UI ครั้งเดียว
-    _trigger.setMultiValues(previousState.values);
+    // แปลง List กลับเป็น Map<int, dynamic> เพื่อใช้กับ setMultiValues
+    final Map<int, dynamic> rollbackMap = {};
+    for (int i = 0; i < prevState.values.length; i++) {
+      rollbackMap[i] = prevState.values[i];
+    }
+    _trigger.setMultiValues(rollbackMap);
   }
 
   void enableSnapshot() =>
@@ -254,21 +262,16 @@ class TriggerInspector<T extends Trigger> {
   // ระบบ Report ที่ดึงข้อมูลจาก Log Class มาแสดง
   void printHistoryReport() {
     print('\n📜 [History Report] ${_trigger.runtimeType}');
-    print('-------------------------------------------');
-
     for (int i = 0; i < _history.length; i++) {
       final log = _history[i];
-      final prevLog = i > 0 ? _history[i - 1] : null;
-      final timeStr =
-          "${log.timestamp.minute}:${log.timestamp.second}.${log.timestamp.millisecond}";
+      final prev = i > 0 ? _history[i - 1] : null;
+      print('Step [$i] @ ${log.timestamp.second}.${log.timestamp.millisecond}');
 
-      print('Step [$i] @ $timeStr');
-      log.values.forEach((key, value) {
-        // ถ้าค่าไม่เหมือนเดิม ให้ใส่เครื่องหมาย 🟡 หรือถ้าเป็น Snapshot แรกให้พิมพ์ปกติ
-        final isChanged = prevLog == null || prevLog.values[key] != value;
+      for (int j = 0; j < log.values.length; j++) {
+        final isChanged = prev == null || prev.values[j] != log.values[j];
         final prefix = isChanged ? '🟡 ' : '   ';
-        print('$prefix${key.padRight(12)} : $value');
-      });
+        print('$prefix${_nameOf(j).padRight(12)} : ${log.values[j]}');
+      }
       print('-------------------------------------------');
     }
   }
@@ -276,13 +279,12 @@ class TriggerInspector<T extends Trigger> {
 
 class _StateChangeLog {
   final DateTime timestamp;
-  final Map<String, Object?> values;
-  // เก็บไว้ว่า Snapshot นี้เกิดจากการแก้ Field ไหนบ้าง (Optional แต่ช่วยให้ Report สวย)
-  final Set<String>? impactFields;
+  final List<Object?> values; // เก็บเป็น List ตามโครงสร้างใหม่
+  final Set<int>? impactIndices;
 
   _StateChangeLog({
     required this.timestamp,
     required this.values,
-    this.impactFields,
+    this.impactIndices,
   });
 }

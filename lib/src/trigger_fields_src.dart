@@ -1,16 +1,16 @@
 part of '../trigger.dart';
 
 abstract class TriggerFields<T extends Trigger> {
-  final List<String> _list = [];
+  final Set<int> _list = {};
   bool _isUsed = false;
 
-  List<String> getList() {
+  List<int> getList() {
     if (_isUsed) {
       throw StateError('TriggerFields can only be executed once.');
     }
     _isUsed = true;
-    return _list;
+    return _list.toList();
   }
 
-  void addField(String str) => _list.add(str);
+  void addField(int index) => _list.add(index);
 }

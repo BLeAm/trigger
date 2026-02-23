@@ -60,5 +60,26 @@ class UpdateScheduler {
   }
 }
 
+/// ตัวจัดการการอัปเดตแบบทันที (Synchronous)
+class SyncUpdateScheduler extends UpdateScheduler {
+  @override
+  void enqueue(Iterable<Updateable>? listeners) {
+    if (listeners == null || listeners.isEmpty) return;
+
+    // Snapshot เพื่อป้องกัน Concurrent Modification
+    // ในกรณีที่ update() ตัวหนึ่งไปสั่งเพิ่ม/ลด listener ของอีกตัว
+    final processingList = listeners.toList();
+
+    for (final state in processingList) {
+      try {
+        state.update();
+      } catch (e, stack) {
+        Zone.current.handleUncaughtError(e, stack);
+      }
+    }
+  }
+}
+
 // สร้าง Default Instance ไว้ใช้ร่วมกันทั้งแอป (ลด Global Coupling แบบ Static)
 final defaultUpdateScheduler = UpdateScheduler();
+final syncUpdateScheduler = SyncUpdateScheduler();

@@ -7,58 +7,59 @@ abstract base class TriggerEffect<T extends Trigger> implements Updateable {
   @protected
   T get trigger => _trigger;
 
+  // เปลี่ยนเป็น List<int> แทน String
   TriggerFields<T> get listenTo;
   TriggerFields<T> get allowedMutate;
 
-  late final List<String> _listenTo;
-  late final Set<String> _allowedMutate;
+  late final Set<int> _allowedMutate;
 
-  void checkAllow(String key) {
-    if (!_allowedMutate.contains(key)) {
+  void checkAllow(int index) {
+    if (!_allowedMutate.contains(index)) {
       throw StateError(
-        "Access Denied: Mutation of key '$key' is restricted. Only keys in [${_allowedMutate.join(', ')}] are allowed.",
+        "Access Denied: Mutation of index '$index' (${_trigger._fieldNames[index]}) is restricted.",
       );
     }
   }
 
   TriggerEffect(T trigger) {
     _trigger = trigger;
-    _listenTo = listenTo.getList();
-    _allowedMutate = allowedMutate.getList().toSet();
+    final listenToIdx = listenTo.getList();
+    final mutateIdx = allowedMutate.getList();
+    _allowedMutate = mutateIdx.toSet();
 
     // 1. ตรวจสอบ Cycle สำหรับทุกๆ key ที่เรากำลังจะ "ฟัง" (Listen)
-    for (final lKey in _listenTo) {
-      _verifyNoPathToTargets(lKey, _allowedMutate, this.trigger._impactMap);
+    // BFS Cycle Detection using Integers
+    for (final lIdx in listenToIdx) {
+      _verifyNoPathToTargets(lIdx, _allowedMutate, _trigger._impactMap);
     }
 
     // 2. ถ้าผ่านการเช็ค (ไม่มี Error) ให้บันทึกความสัมพันธ์ลงใน _impactMap ของ Trigger
     // บันทึกว่า: ถ้า mKey เปลี่ยน (Mutate) จะส่งผลกระทบย้อนกลับไปหาต้นตอ (lKey)
-    for (final mKey in _allowedMutate) {
-      final impactSet = this.trigger._impactMap.putIfAbsent(mKey, () => {});
-      for (final lKey in _listenTo) {
-        impactSet.add(lKey);
+    // Record Impacts
+    for (final mIdx in _allowedMutate) {
+      final impactSet = _trigger._impactMap.putIfAbsent(mIdx, () => {});
+      for (final lIdx in listenToIdx) {
+        impactSet.add(lIdx);
       }
     }
 
     // 3. เริ่มฟังค่า (Listen) ตามปกติ
-    for (final lKey in _listenTo) {
-      this.trigger.listenTo(lKey, this);
+    for (final lIdx in listenToIdx) {
+      _trigger.listenTo(lIdx, this);
     }
   }
 
   /// ฟังก์ชันใหม่: ใช้ BFS หาทางเดินจาก start ไปยังกลุ่มเป้าหมาย (targetKeys)
   void _verifyNoPathToTargets(
-    String startKey,
-    Set<String> targetKeys,
-    Map<String, Set<String>> map,
+    int startIdx,
+    Set<int> targets,
+    Map<int, Set<int>> map,
   ) {
     // กรณีพื้นฐาน: ถ้าต้นตอ (Listen) กับเป้าหมาย (Mutate) เป็นตัวเดียวกัน
-    if (targetKeys.contains(startKey)) {
-      _throwCycleError(startKey, startKey);
-    }
+    if (targets.contains(startIdx)) _throwCycleError(startIdx, startIdx);
 
-    final queue = Queue<String>()..add(startKey);
-    final visited = <String>{startKey};
+    final queue = Queue<int>()..add(startIdx);
+    final visited = <int>{startIdx};
 
     while (queue.isNotEmpty) {
       final current = queue.removeFirst();
@@ -66,12 +67,7 @@ abstract base class TriggerEffect<T extends Trigger> implements Updateable {
 
       if (neighbors != null) {
         for (final next in neighbors) {
-          // ถ้าเจอว่าเพื่อนบ้านตัวไหนอยู่ในกลุ่มเป้าหมาย แปลว่าเกิด Cycle
-          if (targetKeys.contains(next)) {
-            _throwCycleError(startKey, next);
-          }
-
-          // ถ้ายังไม่เคยไปที่ Node นี้ ให้ใส่ Queue เพื่อค้นหาต่อ
+          if (targets.contains(next)) _throwCycleError(startIdx, next);
           if (!visited.contains(next)) {
             visited.add(next);
             queue.add(next);
@@ -81,16 +77,12 @@ abstract base class TriggerEffect<T extends Trigger> implements Updateable {
     }
   }
 
-  void _throwCycleError(String listen, String mutate) {
-    throw StateError(
-      "Cyclic update detected: This effect listens to '$listen' but tries to mutate '$mutate', "
-      "which eventually impacts '$listen' again (Circular Dependency).",
-    );
+  void _throwCycleError(int listen, int mutate) {
+    final lName = _trigger._fieldNames[listen];
+    final mName = _trigger._fieldNames[mutate];
+    throw StateError("Cyclic update detected: '$lName' <-> '$mName'");
   }
 
   void onTrigger();
-
-  void update() {
-    onTrigger();
-  }
+  void update() => onTrigger();
 }

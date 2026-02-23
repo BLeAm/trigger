@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:meta/meta.dart';
 
 export 'src/annotations.dart';
+export 'package:meta/meta.dart' show protected;
 
 part 'src/trigger_effect_src.dart';
 part 'src/trigger_fields_src.dart';
@@ -20,11 +21,14 @@ abstract base class Trigger {
   final UpdateScheduler _scheduler;
   // เพิ่ม flag เพื่อบอกว่าเป็น Singleton หรือไม่
   final bool isSingleton;
-  final Map<String, Set<String>> _impactMap = {};
-  final Map<String, Object?> _values = {};
-  final Map<String, Set<Updateable>> _listenMap = {};
-  final Map<Updateable, Set<String>> _reverseListenMap =
-      LinkedHashMap.identity();
+  late final List<Object?> _values;
+  late final List<Set<Updateable>> _listenMap;
+  final List<String> _fieldNames;
+
+  // Dependency map: Map<MutatedIndex, Set<ListenerIndex>>
+  final Map<int, Set<int>> _impactMap = {};
+
+  final Map<Updateable, Set<int>> _reverseListenMap = LinkedHashMap.identity();
 
   static T of<T extends Trigger>() {
     final instance = _instances[T];
@@ -34,11 +38,16 @@ abstract base class Trigger {
 
   //This register flag is to register this trigger as singleton or not.
   Trigger({
+    required int fieldCount,
+    required List<String> fieldNames,
     bool register = true,
-    UpdateScheduler?
-    scheduler, // รับ Scheduler จากภายนอกได้ (ถ้าไม่ส่งมาใช้ตัวกลาง)
-  }) : _scheduler = scheduler ?? defaultUpdateScheduler,
+    UpdateScheduler? scheduler,
+  }) : _fieldNames = fieldNames,
+       _scheduler = scheduler ?? defaultUpdateScheduler,
        isSingleton = register {
+    _values = List<Object?>.filled(fieldCount, null);
+    _listenMap = List.generate(fieldCount, (_) => LinkedHashSet.identity());
+
     if (register) {
       if (_instances.containsKey(runtimeType)) {
         throw StateError('Trigger $runtimeType already registered');
@@ -48,34 +57,36 @@ abstract base class Trigger {
   }
 
   @protected
-  void setValue(String key, dynamic value) {
-    _values[key] = value;
+  void setValue(int index, dynamic value) {
+    _values[index] = value;
     // แทนที่จะ loop สั่ง update ทันที ให้ส่งเข้าคิวแทน
-    _scheduler.enqueue(_listenMap[key]);
+    _scheduler.enqueue(_listenMap[index]);
   }
 
   @protected
-  void setMultiValues(Map<String, dynamic> newValues) {
+  void setMultiValues(Map<int, dynamic> newValues) {
+    final allListeners = <Updateable>{};
     for (final entry in newValues.entries) {
       _values[entry.key] = entry.value;
-      _scheduler.enqueue(_listenMap[entry.key]); // ใช้ helper ที่ทำไว้แล้ว
+      allListeners.addAll(_listenMap[entry.key]);
     }
+    _scheduler.enqueue(allListeners);
   }
 
   @visibleForTesting
   @protected
-  bool hasListeners() => _listenMap.isNotEmpty;
+  // เนื่องจาก _listenMap เป็น List ที่มีขนาดคงที่ (ไม่ว่างเปล่าแน่ๆ)
+  // ควรเช็คว่าใน Set ข้างในมีคนฟังอยู่จริงๆ ไหม
+  bool hasListeners() => _listenMap.any((listeners) => listeners.isNotEmpty);
 
   @protected
-  Object? getValue(String key) {
-    return _values[key];
-  }
+  Object? getValue(int index) => _values[index];
 
   @protected
-  void listenTo(String key, Updateable state) {
+  void listenTo(int index, Updateable state) {
     // ใช้ LinkedHashSet.identity เพื่อความเร็วในการจัดการ Listener
-    _listenMap.putIfAbsent(key, () => LinkedHashSet.identity()).add(state);
-    _reverseListenMap.putIfAbsent(state, () => {}).add(key);
+    _listenMap[index].add(state);
+    _reverseListenMap.putIfAbsent(state, () => {}).add(index);
   }
 
   void stopListeningAll(Updateable state) {
@@ -84,10 +95,10 @@ abstract base class Trigger {
     // เข้าถึงผ่าน _updateQueue ไม่ได้แล้วเพราะย้ายไปอยู่ใน Scheduler
     // แต่เราไม่กังวลเพราะ state.update() จะไม่ทำงานถ้า Widget นั้นถูกถอดออกแล้ว
 
-    final keys = _reverseListenMap.remove(state);
-    if (keys != null) {
-      for (final key in keys) {
-        _listenMap[key]?.remove(state);
+    final indices = _reverseListenMap.remove(state);
+    if (indices != null) {
+      for (final idx in indices) {
+        _listenMap[idx].remove(state);
       }
     }
   }
@@ -103,8 +114,10 @@ abstract base class Trigger {
       _instances.remove(runtimeType);
     }
 
-    _values.clear();
-    _listenMap.clear();
+    _values.fillRange(0, _values.length, null);
+    for (var set in _listenMap) {
+      set.clear();
+    }
     _reverseListenMap.clear();
     _impactMap.clear();
   }

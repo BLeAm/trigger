@@ -25,17 +25,16 @@ import 'dart:async';
 class Latest<K> {
   final Map<K, Completer<dynamic>> _registry = {};
 
-  /// [key] คือ Identity ของงาน (String หรือ Enum, ฯลฯ แล้วแต่กรณีใช้งาน/userเลือก)
-  /// [task] คือ Future งานที่ต้องการรัน
-  /// [onSuccess] จะทำงานเมื่อเป็นงานล่าสุด ณ ตอนที่ operator เสร็จเท่านั้น
-  /// [onError] (Optional) สำหรับจัดการ Error ของงานล่าสุด
   void call<T>({
     required K key,
     required Future<T> Function() task,
     required void Function(T data) onSuccess,
     void Function(Object error)? onError,
-  }) async {
-    final old = _registry.remove(key);
+  }) {
+    // ลบ async ออกจากหัวฟังก์ชันนี้ เพื่อคุมลำดับเอง
+
+    // 1. จัดการงานเก่า
+    final old = _registry[key];
     if (old != null && !old.isCompleted) {
       old.completeError('_superseded_');
     }
@@ -43,44 +42,51 @@ class Latest<K> {
     final completer = Completer<T>();
     _registry[key] = completer;
 
-    // Execute task
-    try {
-      final value = await task();
-      if (!completer.isCompleted) completer.complete(value);
-    } catch (e, stack) {
-      if (!completer.isCompleted) completer.completeError(e, stack);
-    }
+    // 2. ผูก Error Listener ไว้กับ Future ทันที (ป้องกัน Error หลุดไป Global)
+    completer.future
+        .then((result) {
+          if (_registry[key] == completer) {
+            _registry.remove(key);
+            onSuccess(result);
+          }
+        })
+        .catchError((e) {
+          if (e.toString() == '_superseded_' || e.toString() == '_disposed_') {
+            return; // จบเงียบๆ ตามแผน
+          }
 
-    // Handle results
-    try {
-      final result = await completer.future;
-      if (_registry[key] == completer) {
-        _registry.remove(key);
-        onSuccess(result); // ถ้า onSuccess พัง มันจะหลุดไปที่ catch ด้านล่าง
+          if (_registry[key] == completer) {
+            _registry.remove(key);
+            if (onError != null) {
+              onError(e);
+            } else {
+              // แทนที่จะ rethrow เราใช้การพิมพ์บอก Developer
+              print('Latest Task Error ($key): $e');
+            }
+          }
+        });
+
+    // 3. เริ่มรัน Task จริง
+    // ใช้ปีกกาครอบเพื่อให้แน่ใจว่า task() จะไม่หลุดออกไปข้างนอก
+    () async {
+      try {
+        final value = await task();
+        if (!completer.isCompleted) completer.complete(value);
+      } catch (e, stack) {
+        if (!completer.isCompleted) completer.completeError(e, stack);
       }
-    } catch (e) {
-      if (e == '_superseded_') return;
-
-      if (_registry[key] == completer) _registry.remove(key);
-
-      if (onError != null) {
-        onError(e);
-      } else {
-        // ถ้าไม่มี onError ให้ throw ออกไปเพื่อให้ Developer รู้ตัว
-        rethrow;
-      }
-    }
+    }();
   }
 
-  /// แถม: สั่งล้างงานทั้งหมด (ใช้ตอน dispose)
   void cancelAll() {
-    for (var c in _registry.values) {
-      if (!c.isCompleted) c.completeError('_disposed_');
+    for (var key in _registry.keys.toList()) {
+      final c = _registry.remove(key);
+      if (c != null && !c.isCompleted) {
+        c.completeError('_disposed_');
+      }
     }
-    _registry.clear();
   }
 }
-
 // enum _MyTask { waitAndPrint, run }
 
 // void _main() async {
