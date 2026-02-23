@@ -82,7 +82,6 @@ abstract base class Trigger {
   @protected
   Object? getValue(int index) => _values[index];
 
-  @protected
   void listenTo(int index, Updateable state) {
     // ใช้ LinkedHashSet.identity เพื่อความเร็วในการจัดการ Listener
     _listenMap[index].add(state);
