@@ -54,7 +54,7 @@ class TriggerInspector<T extends Trigger> {
       parameters,
     ) async {
       final action = parameters['action'];
-      final targetName = parameters['target'];
+      // final targetName = parameters['target'];
 
       for (var inspector in _allInspectors) {
         if (action == 'clearStats') {
@@ -168,7 +168,7 @@ class TriggerInspector<T extends Trigger> {
   // Helper สำหรับสี Console
   String _color(String text, String code) => '\x1B[${code}m$text\x1B[0m';
   String get _red => '31';
-  String get _green => '32';
+  // String get _green => '32';
   String get _yellow => '33';
   String get _cyan => '36';
 
