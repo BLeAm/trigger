@@ -14,7 +14,8 @@ dependencies:
   # ชี้กลับมาที่ package หลักของเรา
   trigger: 
     path: ../ 
-
+  flutter_trigger:
+    path: /home/bleamz/playground/flutter/flutter_trigger
 dev_dependencies:
   flutter_test:
     sdk: flutter

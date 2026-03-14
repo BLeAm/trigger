@@ -1,4 +1,4 @@
-name: Trigger DevTools
+name: trigger_devtools
 version: 1.0.0
 # ไอคอนที่จะไปโผล่ใน DevTools (ใช้ Material Icon Code)
 materialIconCodePoint: '0xe6af'
